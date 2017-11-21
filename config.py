@@ -1,0 +1,7 @@
+HUMAN, ROBOT, GOMOCUP = 0, 1, 2
+BLACK, WHITE, EMPTY = 1, -1, 0
+SIZE = 20
+WIN_NUM = 5
+
+HOST = 'localhost'
+PORT = 10329
