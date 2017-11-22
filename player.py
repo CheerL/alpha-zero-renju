@@ -13,7 +13,7 @@ class Player(object):
         index = self.board.xy2index(x, y)
         assert self.oppo_board is not None, '对手盘面未知'
         assert self.board[index] == 0 and self.oppo_board[index] == 0, '目标位置已经有子'
-        self.board[index] = self.board.color
+        self.board[index] = 1
         msg = '{}: ({},{})'.format('Black' if self.board.color is cfg.BLACK else 'White', x, y)
         print(msg)
 

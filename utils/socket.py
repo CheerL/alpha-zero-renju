@@ -11,6 +11,7 @@ class SocketClient(socket.socket):
         self.port = port
         try:
             self.connect((self.host, self.port))
+            self.settimeout(5)
         except socket.error:
             # print('Connect failed')
             sys.exit()
@@ -18,8 +19,14 @@ class SocketClient(socket.socket):
     def send_msg(self, msg):
         self.send(msg.encode())
 
-    def recv_msg(self, buffer_size=1024):
-        return self.recv(buffer_size).decode()
+    def recv_msg(self, buffer_size=1024, retry=0):
+        try:
+            return self.recv(buffer_size).decode()
+        except socket.timeout:
+            if retry < 3:
+                return self.recv_msg(buffer_size, retry + 1)
+            else:
+                raise socket.timeout
 
 class SocketServer(socket.socket):
     conn = None
@@ -41,13 +48,21 @@ class SocketServer(socket.socket):
         self.check_conn()
         self.conn.send(msg.encode())
 
-    def recv_msg(self, buffersize=1024):
+    def recv_msg(self, buffersize=1024, retry=0):
         self.check_conn()
-        return self.conn.recv(buffersize).decode()
+        try:
+            return self.conn.recv(buffersize).decode()
+        except socket.timeout:
+            if retry < 3:
+                return self.recv_msg(buffersize, retry + 1)
+            else:
+                raise socket.timeout
+            
 
     def check_conn(self):
         if self.conn is None:
             self.listen(5)
             # print('Wait connection')
-            self.conn, addr = self.accept()
+            self.conn, _ = self.accept()
+            self.conn.settimeout(5)
             # print('Connected with {}:{}'.format(*addr))

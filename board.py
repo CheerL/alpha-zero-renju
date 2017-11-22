@@ -49,12 +49,11 @@ class Board(object):
     def judge_win(self, x, y):
         '''检查点`(x, y)`周围情况, 判断是否获胜'''
         lines = [self.row(x), self.col(y), self.diag(x, y), self.back_diag(x, y)]
-        target = 5 * self.color
         for line in lines:
             if line.size < cfg.WIN_NUM:
                 continue
             else:
-                if target in np.correlate(line, self.WIN_PATTERN):
+                if cfg.WIN_NUM in np.correlate(line, self.WIN_PATTERN):
                     return True
         return False
 

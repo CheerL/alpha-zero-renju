@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 import win32console
@@ -5,6 +6,7 @@ import pywintypes
 import config as cfg
 from utils.socket import SocketServer, SOCKET_INIT_PARA
 from utils.logger import LogHandler
+from utils import ROOT_PATH
 
 def recv_msg():
     """read a line from sys.stdin"""
@@ -24,8 +26,8 @@ def main():
     except pywintypes.error:
         pass
 
-    subprocess.Popen(
-        ['python', 'gomocup.py'],
+    process = subprocess.Popen(
+        ['python', os.path.join(ROOT_PATH, 'gomocup.py')],
         stderr=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE
@@ -46,9 +48,11 @@ def main():
             if msg != 'None':
                 send_msg(msg)
                 logger.info(msg)
+            
 
     finally:
         socket.close()
+        process.kill()
 
 if __name__ == '__main__':
     main()
