@@ -49,7 +49,7 @@ class Game(object):
 
         player.move(*move)
         self.board_history.appendleft(player.board.board)
-        self.logger.info('Round {}, {}: ({}:{})'.format(
+        self.logger.info('Round %d, %s: (%d:%d)' % (
             self.round_num,
             'Black' if self.player_color is cfg.BLACK else 'White',
             *move

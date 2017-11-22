@@ -1,5 +1,6 @@
 import sys
 import socket
+import logging
 
 SOCKET_INIT_PARA = [socket.AF_INET, socket.SOCK_STREAM]
 
@@ -19,7 +20,7 @@ class SocketClient(socket.socket):
     def send_msg(self, msg):
         self.send(msg.encode())
 
-    def recv_msg(self, buffer_size=1024, retry=0):
+    def recv_msg(self, buffer_size=2048, retry=0):
         try:
             return self.recv(buffer_size).decode()
         except socket.timeout:
@@ -30,10 +31,6 @@ class SocketClient(socket.socket):
 
 class SocketServer(socket.socket):
     conn = None
-    # def __init__(self):
-    #     super().__init__(socket.AF_INET, socket.SOCK_DGRAM)
-    #     self.bind((cfg.HOST, cfg.PORT))
-    #     self.conn = None
 
     def bind_addr(self, host, port):
         try:
@@ -48,10 +45,11 @@ class SocketServer(socket.socket):
         self.check_conn()
         self.conn.send(msg.encode())
 
-    def recv_msg(self, buffersize=1024, retry=0):
+    def recv_msg(self, buffersize=2048, retry=0):
         self.check_conn()
         try:
-            return self.conn.recv(buffersize).decode()
+            msg = self.conn.recv(buffersize).decode()
+            return msg
         except socket.timeout:
             if retry < 3:
                 return self.recv_msg(buffersize, retry + 1)

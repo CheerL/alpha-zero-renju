@@ -6,7 +6,7 @@ import pywintypes
 import config as cfg
 from utils.socket import SocketServer, SOCKET_INIT_PARA
 from utils.logger import LogHandler
-from utils import ROOT_PATH
+from utils import ROOT_PATH, LOG_PATH
 
 def recv_msg():
     """read a line from sys.stdin"""
@@ -26,17 +26,19 @@ def main():
     except pywintypes.error:
         pass
 
+    file_name = os.path.join(LOG_PATH, 'temp')
+    pipe = open(file_name, 'w+')
     process = subprocess.Popen(
         ['python', os.path.join(ROOT_PATH, 'gomocup.py')],
-        stderr=subprocess.PIPE,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE
+        stderr=pipe,
+        stdout=pipe
     )
     logger = LogHandler('manager', handlers=['File'])
-    logger.info('Start background process')
+    logger.info('start background process')
     socket = SocketServer(*SOCKET_INIT_PARA)
     socket.bind_addr(cfg.HOST, cfg.PORT)
-    logger.info('Socket bind success')
+    logger.info('socket bind success')
+    # a = process.communicate()
 
     try:
         # now keep talking with the client
@@ -48,11 +50,12 @@ def main():
             if msg != 'None':
                 send_msg(msg)
                 logger.info(msg)
-            
 
     finally:
+        pipe.close()
         socket.close()
         process.kill()
+        os.remove(file_name)
 
 if __name__ == '__main__':
     main()

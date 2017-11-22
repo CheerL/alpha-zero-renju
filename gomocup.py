@@ -9,12 +9,12 @@ class Gomocup(object):
         cfg.BLACK: 'Black',
         cfg.WHITE: 'White'
     }
-    def __init__(self):
+    def __init__(self, size=None):
         self.end = False
         self.start = False
         self.begin = False
         self.robot_color = None
-        self.size = None
+        self.size = size
         self.game = None
         self.messages = list()
         self.logger = LogHandler('gomocup')
@@ -50,9 +50,13 @@ class Gomocup(object):
             if self.begin:
                 gomocup_move = [int(each) for each in cmds[1].split(',')]
                 self.game.round_process(gomocup_move)
-                move = self.game.round_process()
-                self.logger.info('%s: (%d,%d)' % (self.COLOR[-self.robot_color], *gomocup_move))
-                self.logger.info('%s: (%d,%d)' % (self.COLOR[self.robot_color], *move))
+                try:
+                    move = self.game.round_process()
+                    self.logger.info('%s: (%d,%d)' % (self.COLOR[-self.robot_color], *gomocup_move))
+                    self.logger.info('%s: (%d,%d)' % (self.COLOR[self.robot_color], *move))
+                except Exception as e:
+                    self.logger.error(e)
+                    raise Exception(e)
                 return '{},{}'.format(*move)
             elif self.start:
                 self.begin = True
@@ -70,7 +74,8 @@ class Gomocup(object):
                 return 'ERROR game has not started'
         elif cmds[0] == 'RESTART':
             self.logger.info('restart game')
-            self.__init__()
+            self.__init__(self.size)
+            self.start = True
             return 'OK'
         elif cmds[0] == 'ABOUT':
             self.logger.info('ask about info')
@@ -94,14 +99,15 @@ class Gomocup(object):
 
 def main():
     gomocup = Gomocup()
+    logger = gomocup.logger
     socket = SocketClient(*SOCKET_INIT_PARA)
     while True:
         try:
             socket.bind_addr(cfg.HOST, cfg.PORT)
-            gomocup.logger.info('socket bind success')
+            logger.info('socket bind success')
             break
         except:
-            gomocup.logger.error('socket connect Failed')
+            logger.error('socket connect Failed')
             time.sleep(1)
     try:
         while not gomocup.end:
@@ -109,7 +115,8 @@ def main():
                 cmd = socket.recv_msg()
                 response = gomocup.process_cmd(cmd)
                 socket.send_msg(response)
-            except:
+            except Exception as e:
+                logger.error(e)
                 time.sleep(1)
     finally:
         socket.close()
