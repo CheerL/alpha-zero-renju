@@ -40,8 +40,8 @@ class Gomocup(object):
                 self.robot_color = cfg.BLACK
                 self.game = Game(cfg.ROBOT, cfg.GOMOCUP, self.size)
                 move = self.game.round_process()
-                self.logger.info('begin play as %s' % self.COLOR[self.robot_color])
-                self.logger.info('%s: (%d,%d)' % (self.COLOR[self.robot_color], *move))
+                self.logger.info('begin play as {}'.format(self.COLOR[self.robot_color]))
+                self.logger.info('{}: ({},{})'.format(self.COLOR[self.robot_color], *move))
                 return '{},{}'.format(*move)
             else:
                 self.logger.error('game has not started')
@@ -52,8 +52,8 @@ class Gomocup(object):
                 self.game.round_process(gomocup_move)
                 try:
                     move = self.game.round_process()
-                    self.logger.info('%s: (%d,%d)' % (self.COLOR[-self.robot_color], *gomocup_move))
-                    self.logger.info('%s: (%d,%d)' % (self.COLOR[self.robot_color], *move))
+                    self.logger.info('{}: ({},{})'.format_map(self.COLOR[-self.robot_color], *gomocup_move))
+                    self.logger.info('{}: ({},{})'.format_map(self.COLOR[self.robot_color], *move))
                 except Exception as e:
                     self.logger.error(e)
                     raise Exception(e)
@@ -65,9 +65,9 @@ class Gomocup(object):
                 gomocup_move = [int(each) for each in cmds[1].split(',')]
                 self.game.round_process(gomocup_move)
                 move = self.game.round_process()
-                self.logger.info('begin play as %s' % self.COLOR[self.robot_color])
-                self.logger.info('%s: (%d,%d)' % (self.COLOR[-self.robot_color], *gomocup_move))
-                self.logger.info('%s: (%d,%d)' % (self.COLOR[self.robot_color], *move))
+                self.logger.info('begin play as {}'.format(self.COLOR[self.robot_color]))
+                self.logger.info('{}: ({},{})'.format(self.COLOR[-self.robot_color], *gomocup_move))
+                self.logger.info('{}: ({},{})'.format(self.COLOR[self.robot_color], *move))
                 return '{},{}'.format(*move)
             else:
                 self.logger.error('game has not started')
