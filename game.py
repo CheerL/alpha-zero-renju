@@ -16,7 +16,7 @@ class Game(object):
     }
     logger = Logger('game')
 
-    def __init__(self, black_player_type=cfg.MCTS, white_player_type=cfg.MCTS, size=cfg.SIZE):
+    def __init__(self, black_player_type=cfg.RANDOM, white_player_type=cfg.RANDOM, size=cfg.SIZE):
         black_player = self.PLAYER[black_player_type](cfg.BLACK, size)
         white_player = self.PLAYER[white_player_type](cfg.WHITE, size)
         black_player.oppo_board = white_player.board
@@ -43,25 +43,39 @@ class Game(object):
     def white_player(self):
         return self.players[cfg.WHITE]
 
+    @property
+    def now_player(self):
+        return self.players[self.player_color]
+
+    @property
+    def last_player(self):
+        return self.players[-self.player_color]
+
+    def round_back(self):
+        undo = self.now_player.undo()
+        oppo_undo = self.last_player.undo()
+        self.round_num -= 2
+        self.logger.info('Round back to {}'.format(self.round_num))
+        return undo, oppo_undo
+
     def round_process(self, move=None):
-        player = self.players[self.player_color]
-        if player.player_type is not cfg.GOMOCUP:
-            move = player.get_move()
-        else:
-            if not move:
+        if not move:
+            if self.now_player.player_type is not cfg.GOMOCUP:
+                move = self.now_player.get_move()
+            else:
                 msg = 'gomocup player does not get move'
                 self.logger.error(msg)
                 raise NotImplementedError(msg)
 
-        player.move(*move)
+        self.now_player.move(*move)
         self.logger.info('Round {}, {}: ({}:{})'.format(
             self.round_num, cfg.COLOR[self.player_color], *move
         ))
-        if player.board.judge_win(*move):
+        if self.now_player.board.judge_win(*move):
             self.winner = self.player_color
             self.game_over()
             # 输出结果
-        elif self.round_num is player.board.full_size - 1:
+        elif self.round_num is self.now_player.board.full_size - 1:
             self.game_over()
         else:
             self.player_color *= -1

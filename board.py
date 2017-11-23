@@ -9,7 +9,7 @@ class Board(object):
         self.size = size
         self.full_size = self.size ** 2
         self.board = np.zeros(self.full_size, np.int)
-        self.matrix_trans = self.generate_matrix_trans()
+        # self.matrix_trans = self.generate_matrix_trans()
 
     def __getitem__(self, index):
         return self.board[index]
@@ -62,26 +62,26 @@ class Board(object):
         '''以`size * size`(默认`15 * 15`)的矩阵形式输出'''
         return self.board.reshape(self.size, self.size) * self.color
 
-    def generate_matrix_trans(self):
-        rotat_0 = lambda m: m
-        rotat_90 = np.rot90
-        rotat_180 = lambda m: np.rot90(m, 2)
-        rotat_270 = lambda m: np.rot90(m, 3)
-        reflect_0 = np.fliplr
-        reflect_90 = lambda m: np.fliplr(rotat_90(m))
-        reflect_180 = lambda m: np.fliplr(rotat_180(m))
-        reflect_270 = lambda m: np.fliplr(rotat_270(m))
+    # def generate_matrix_trans(self):
+    #     rotat_0 = lambda m: m
+    #     rotat_90 = np.rot90
+    #     rotat_180 = lambda m: np.rot90(m, 2)
+    #     rotat_270 = lambda m: np.rot90(m, 3)
+    #     reflect_0 = np.fliplr
+    #     reflect_90 = lambda m: np.fliplr(rotat_90(m))
+    #     reflect_180 = lambda m: np.fliplr(rotat_180(m))
+    #     reflect_270 = lambda m: np.fliplr(rotat_270(m))
 
-        return {
-            0: rotat_0,
-            1: rotat_90,
-            2: rotat_180,
-            3: rotat_270,
-            4: reflect_0,
-            5: reflect_90,
-            6: reflect_180,
-            7: reflect_270
-        }
+    #     return {
+    #         0: rotat_0,
+    #         1: rotat_90,
+    #         2: rotat_180,
+    #         3: rotat_270,
+    #         4: reflect_0,
+    #         5: reflect_90,
+    #         6: reflect_180,
+    #         7: reflect_270
+    #     }
 
 
 if __name__ == '__main__':
