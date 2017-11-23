@@ -12,11 +12,12 @@ class Player(object):
     logger = Logger('game')
 
     def __init__(self, color, player_type, size):
+        self.color = color
         self.player_type = player_type
         self.board = Board(color, size)
         self.oppo_board = None
         self.history = deque()
-        self.logger.info('Create new {} player'.format(cfg.COLOR[color]))
+        self.logger.info('Create new {} player'.format(cfg.COLOR[self.color]))
 
     def move(self, x, y):
         '''在`(x, y)`处落子'''
@@ -31,6 +32,8 @@ class Player(object):
     def undo(self):
         history = self.history.popleft()
         self.board.board = history.board
+        self.logger.info('{} undo: ({},{})'.format(cfg.COLOR[self.color], history.x, history.y))
+        return cfg.COLOR[self.color], history.x, history.y
 
     def add_history(self, x, y):
         history = History(self.board.board.copy(), x, y, None)
@@ -52,7 +55,7 @@ class RandomPlayer(Player):
         super().__init__(color, cfg.RANDOM, size)
 
     def get_move(self):
-        empty_pos = np.where(self.board.board + self.oppo_board == 0)[0]
+        empty_pos = np.where(self.board.board + self.oppo_board.board == 0)[0]
         index = np.random.choice(empty_pos)
         return self.board.index2xy(index)
 

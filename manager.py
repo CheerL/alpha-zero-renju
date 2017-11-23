@@ -45,11 +45,15 @@ def main():
         while True:
             cmd = recv_msg()
             logger.info(cmd)
-            socket.send_msg(cmd)
-            msg = socket.recv_msg()
-            if msg != 'None':
-                send_msg(msg)
-                logger.info(msg)
+            if cmd == 'STOP':
+                socket.send_msg('END')
+                break
+            else:
+                socket.send_msg(cmd)
+                msg = socket.recv_msg()
+                if msg != 'None':
+                    send_msg(msg)
+                    logger.info(msg)
 
     finally:
         pipe.close()
