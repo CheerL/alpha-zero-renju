@@ -1,22 +1,24 @@
 import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
+from functools import wraps
 from utils import LOG_PATH
 
-CRITICAL = 50
-FATAL = CRITICAL
-ERROR = 40
-WARNING = 30
-WARN = WARNING
-INFO = 20
-DEBUG = 10
-NOTSET = 0
+def no_same_name(cls):
+    obj_dict = {}
+    @wraps(cls)
+    def _no_same_name(name, *args, **kw):
+        if name not in obj_dict:
+            obj_dict[name] = cls(name, *args, **kw)
+        return obj_dict[name]
+    return _no_same_name
 
-class LogHandler(logging.Logger):
+@no_same_name
+class Logger(logging.Logger):
     """
     LogHandler
     """
-    def __init__(self, name, level=DEBUG, handlers=['File', 'Stream']):
+    def __init__(self, name, level=logging.DEBUG, handlers=['File', 'Stream']):
         self.name = name
         self.level = level
         logging.Logger.__init__(self, self.name, level=level)
@@ -75,3 +77,6 @@ class LogHandler(logging.Logger):
         self.name = name
         self.removeHandler(self.file_handler)
         self.__setFileHandler__()
+
+if __name__ == '__main__':
+    l = Logger('test')

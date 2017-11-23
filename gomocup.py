@@ -2,13 +2,11 @@ import time
 import config as cfg
 from game import Game
 from utils.socket import SocketClient, SOCKET_INIT_PARA
-from utils.logger import LogHandler
+from utils.logger import Logger
 
 class Gomocup(object):
-    COLOR = {
-        cfg.BLACK: 'Black',
-        cfg.WHITE: 'White'
-    }
+    logger = Logger('gomocup')
+
     def __init__(self, size=None):
         self.end = False
         self.start = False
@@ -17,7 +15,6 @@ class Gomocup(object):
         self.size = size
         self.game = None
         self.messages = list()
-        self.logger = LogHandler('gomocup')
 
     def do_command(self, cmd):
         cmds = cmd.strip().split(' ')
@@ -40,8 +37,8 @@ class Gomocup(object):
                 self.robot_color = cfg.BLACK
                 self.game = Game(cfg.ROBOT, cfg.GOMOCUP, self.size)
                 move = self.game.round_process()
-                self.logger.info('begin play as {}'.format(self.COLOR[self.robot_color]))
-                self.logger.info('{}: ({},{})'.format(self.COLOR[self.robot_color], *move))
+                self.logger.info('begin play as {}'.format(cfg.COLOR[self.robot_color]))
+                self.logger.info('{}: ({},{})'.format(cfg.COLOR[self.robot_color], *move))
                 return '{},{}'.format(*move)
             else:
                 self.logger.error('game has not started')
@@ -52,8 +49,8 @@ class Gomocup(object):
                 self.game.round_process(gomocup_move)
                 try:
                     move = self.game.round_process()
-                    self.logger.info('{}: ({},{})'.format_map(self.COLOR[-self.robot_color], *gomocup_move))
-                    self.logger.info('{}: ({},{})'.format_map(self.COLOR[self.robot_color], *move))
+                    self.logger.info('{}: ({},{})'.format_map(cfg.COLOR[-self.robot_color], *gomocup_move))
+                    self.logger.info('{}: ({},{})'.format_map(cfg.COLOR[self.robot_color], *move))
                 except Exception as e:
                     self.logger.error(e)
                     raise Exception(e)
@@ -65,9 +62,9 @@ class Gomocup(object):
                 gomocup_move = [int(each) for each in cmds[1].split(',')]
                 self.game.round_process(gomocup_move)
                 move = self.game.round_process()
-                self.logger.info('begin play as {}'.format(self.COLOR[self.robot_color]))
-                self.logger.info('{}: ({},{})'.format(self.COLOR[-self.robot_color], *gomocup_move))
-                self.logger.info('{}: ({},{})'.format(self.COLOR[self.robot_color], *move))
+                self.logger.info('begin play as {}'.format(cfg.COLOR[self.robot_color]))
+                self.logger.info('{}: ({},{})'.format(cfg.COLOR[-self.robot_color], *gomocup_move))
+                self.logger.info('{}: ({},{})'.format(cfg.COLOR[self.robot_color], *move))
                 return '{},{}'.format(*move)
             else:
                 self.logger.error('game has not started')

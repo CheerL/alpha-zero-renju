@@ -48,7 +48,7 @@ class Board(object):
             return self.board[(x + y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]
 
     def judge_win(self, x, y):
-        '''检查点`(x, y)`周围情况, 判断是否获胜'''
+        '''检查`(x, y)`周围情况, 判断是否获胜'''
         lines = [self.row(x), self.col(y), self.diag(x, y), self.back_diag(x, y)]
         for line in lines:
             if line.size < cfg.WIN_NUM:
@@ -60,17 +60,7 @@ class Board(object):
 
     def show(self):
         '''以`size * size`(默认`15 * 15`)的矩阵形式输出'''
-        return self.board.reshape(self.size, self.size)
-
-    def empty(self):
-        self.board = np.zeros(self.full_size, np.int)
-
-    def rotation_and_reflect(self, num):
-        if num not in range(8):
-            return self.board
-        else:
-            matrix = self.board.reshape(self.size, self.size)
-            return self.matrix_trans[num](matrix).reshape(self.full_size)
+        return self.board.reshape(self.size, self.size) * self.color
 
     def generate_matrix_trans(self):
         rotat_0 = lambda m: m

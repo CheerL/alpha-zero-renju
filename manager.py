@@ -5,7 +5,7 @@ import win32console
 import pywintypes
 import config as cfg
 from utils.socket import SocketServer, SOCKET_INIT_PARA
-from utils.logger import LogHandler
+from utils.logger import Logger
 from utils import ROOT_PATH, LOG_PATH
 
 def recv_msg():
@@ -33,7 +33,7 @@ def main():
         stderr=pipe,
         stdout=pipe
     )
-    logger = LogHandler('manager', handlers=['File'])
+    logger = Logger('manager', handlers=['File'])
     logger.info('start background process')
     socket = SocketServer(*SOCKET_INIT_PARA)
     socket.bind_addr(cfg.HOST, cfg.PORT)
