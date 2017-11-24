@@ -2,12 +2,12 @@
 from __future__ import division
 
 import numpy as np
-import config as cfg
+import utils
 
 class Board(object):
-    WIN_PATTERN = np.ones(cfg.WIN_NUM, np.int)
+    WIN_PATTERN = np.ones(utils.WIN_NUM, np.int)
 
-    def __init__(self, color, size=cfg.SIZE):
+    def __init__(self, color, size=utils.SIZE):
         self.color = color
         self.size = size
         self.full_size = self.size ** 2
@@ -54,10 +54,10 @@ class Board(object):
         '''检查`(x, y)`周围情况, 判断是否获胜'''
         lines = [self.row(y), self.col(x), self.diag(x, y), self.back_diag(x, y)]
         for line in lines:
-            if line.size < cfg.WIN_NUM:
+            if line.size < utils.WIN_NUM:
                 continue
             else:
-                if cfg.WIN_NUM in np.correlate(line, self.WIN_PATTERN):
+                if utils.WIN_NUM in np.correlate(line, self.WIN_PATTERN):
                     return True
         return False
 
@@ -84,5 +84,5 @@ class Board(object):
 
 
 if __name__ == '__main__':
-    white_board = Board(cfg.WHITE)
-    black_board = Board(cfg.BLACK)
+    white_board = Board(utils.WHITE)
+    black_board = Board(utils.BLACK)

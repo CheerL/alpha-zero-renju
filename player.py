@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 import logging
 import numpy as np
-import config as cfg
+import utils
 from collections import deque, namedtuple
 from board import Board
 from mcts import MCT
@@ -18,7 +18,7 @@ class Player(object):
         self.board = Board(color, size)
         self.oppo_board = None
         self.history = deque()
-        self.logger.info('Create new {} player'.format(cfg.COLOR[self.color]))
+        self.logger.info('Create new {} player'.format(utils.COLOR[self.color]))
 
     def move(self, x, y):
         '''在`(x, y)`处落子'''
@@ -27,14 +27,14 @@ class Player(object):
         assert self.board.board[index] == 0 and self.oppo_board.board[index] == 0, '目标位置已经有子'
         self.add_history(x, y)
         self.board.board[index] = 1
-        # msg = '{}: ({},{})'.format('Black' if self.board.color is cfg.BLACK else 'White', x, y)
+        # msg = '{}: ({},{})'.format('Black' if self.board.color is utils.BLACK else 'White', x, y)
         # print(msg)
 
     def undo(self):
         history = self.history.popleft()
         self.board.board = history.board
-        self.logger.info('{} undo: ({},{})'.format(cfg.COLOR[self.color], history.x, history.y))
-        return cfg.COLOR[self.color], history.x, history.y
+        self.logger.info('{} undo: ({},{})'.format(utils.COLOR[self.color], history.x, history.y))
+        return utils.COLOR[self.color], history.x, history.y
 
     def add_history(self, x, y):
         history = History(self.board.board.copy(), x, y, None)
@@ -48,17 +48,17 @@ class Player(object):
 
 class GomocupPlayer(Player):
     def __init__(self, color, size):
-        super(GomocupPlayer, self).__init__(color, cfg.GOMOCUP, size)
+        super(GomocupPlayer, self).__init__(color, utils.GOMOCUP, size)
 
 
 class HumanPlayer(Player):
     def __init__(self, color, size):
-        super(HumanPlayer, self).__init__(color, cfg.HUMAN, size)
+        super(HumanPlayer, self).__init__(color, utils.HUMAN, size)
 
 
 class RandomPlayer(Player):
     def __init__(self, color, size):
-        super(RandomPlayer, self).__init__(color, cfg.RANDOM, size)
+        super(RandomPlayer, self).__init__(color, utils.RANDOM, size)
 
     def get_move(self):
         empty_pos = np.where(self.board.board + self.oppo_board.board == 0)[0]
@@ -67,7 +67,7 @@ class RandomPlayer(Player):
 
 class MCTSPlayer(Player):
     def __init__(self, color, size):
-        super(MCTSPlayer, self).__init__(color, cfg.MCTS, size)
+        super(MCTSPlayer, self).__init__(color, utils.MCTS, size)
         self.move_probability = None
 
     def add_history(self, x, y):

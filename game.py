@@ -3,38 +3,37 @@ from __future__ import print_function
 
 import os
 import time
-import config as cfg
+import utils
 from player import HumanPlayer, RandomPlayer, GomocupPlayer, MCTSPlayer
-from utils import RECORD_PATH
 from utils.logger import Logger
 
 class Game(object):
     RESULT = {
-        cfg.BLACK: 'Black win',
-        cfg.WHITE: 'White win',
-        cfg.EMPTY: 'end in a draw'
+        utils.BLACK: 'Black win',
+        utils.WHITE: 'White win',
+        utils.EMPTY: 'end in a draw'
     }
     PLAYER = {
-        cfg.HUMAN: HumanPlayer,
-        cfg.GOMOCUP: GomocupPlayer,
-        cfg.MCTS: MCTSPlayer,
-        cfg.RANDOM: RandomPlayer
+        utils.HUMAN: HumanPlayer,
+        utils.GOMOCUP: GomocupPlayer,
+        utils.MCTS: MCTSPlayer,
+        utils.RANDOM: RandomPlayer
     }
     logger = Logger('game')
 
-    def __init__(self, black_player_type=cfg.RANDOM, white_player_type=cfg.RANDOM, size=cfg.SIZE):
-        black_player = self.PLAYER[black_player_type](cfg.BLACK, size)
-        white_player = self.PLAYER[white_player_type](cfg.WHITE, size)
+    def __init__(self, black_player_type=utils.RANDOM, white_player_type=utils.RANDOM, size=utils.SIZE):
+        black_player = self.PLAYER[black_player_type](utils.BLACK, size)
+        white_player = self.PLAYER[white_player_type](utils.WHITE, size)
         black_player.oppo_board = white_player.board
         white_player.oppo_board = black_player.board
         self.size = size
         self.players = {
-            cfg.BLACK: black_player,
-            cfg.WHITE: white_player
+            utils.BLACK: black_player,
+            utils.WHITE: white_player
         }
         self.round_num = 0
-        self.player_color = cfg.BLACK
-        self.winner = cfg.EMPTY
+        self.player_color = utils.BLACK
+        self.winner = utils.EMPTY
         self.run = True
         self.logger.info(
             'Start new game. Board size: %d * %d, Black: %s, White: %s'
@@ -43,11 +42,11 @@ class Game(object):
 
     @property
     def black_player(self):
-        return self.players[cfg.BLACK]
+        return self.players[utils.BLACK]
 
     @property
     def white_player(self):
-        return self.players[cfg.WHITE]
+        return self.players[utils.WHITE]
 
     @property
     def now_player(self):
@@ -67,7 +66,7 @@ class Game(object):
     def round_process(self, move=None):
         now_player = self.now_player
         if not move:
-            if now_player.player_type is not cfg.GOMOCUP:
+            if now_player.player_type is not utils.GOMOCUP:
                 move = now_player.get_move()
             else:
                 msg = 'gomocup player does not get move'
@@ -76,7 +75,7 @@ class Game(object):
 
         now_player.move(*move)
         self.logger.info('Round {}, {}: ({}:{})'.format(
-            self.round_num, cfg.COLOR[self.player_color], *move
+            self.round_num, utils.COLOR[self.player_color], *move
         ))
         if now_player.board.judge_win(*move):
             self.winner = self.player_color
@@ -114,12 +113,12 @@ class Game(object):
 
     def show(self, board):
         show_board = board.astype(object)
-        show_board[show_board == cfg.BLACK] = '㊣'
-        show_board[show_board == cfg.WHITE] = '〇'
-        show_board[show_board == cfg.EMPTY] = '　'
-        # show_board[show_board == cfg.BLACK] = '★'
-        # show_board[show_board == cfg.WHITE] = '☆'
-        # show_board[show_board == cfg.EMPTY] = '　'
+        show_board[show_board == utils.BLACK] = '㊣'
+        show_board[show_board == utils.WHITE] = '〇'
+        show_board[show_board == utils.EMPTY] = '　'
+        # show_board[show_board == utils.BLACK] = '★'
+        # show_board[show_board == utils.WHITE] = '☆'
+        # show_board[show_board == utils.EMPTY] = '　'
 
         for line in show_board:
             print(''.join(line))
@@ -127,7 +126,7 @@ class Game(object):
     def save_record(self):
         time_suffix = time.strftime('%Y%m%d-%H%M%S',time.localtime())
         record_filename = 'record-{}.psq'.format(time_suffix)
-        record_path = os.path.join(RECORD_PATH, record_filename)
+        record_path = os.path.join(utils.RECORD_PATH, record_filename)
 
         with open(record_path, 'w+') as file:
             file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.size, self.size))

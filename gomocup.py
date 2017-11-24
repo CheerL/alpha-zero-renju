@@ -1,5 +1,5 @@
 import time
-import config as cfg
+import utils
 from queue import Queue
 from game import Game
 from utils.socket import SocketClient, SOCKET_INIT_PARA
@@ -23,11 +23,11 @@ class Gomocup(object):
         if self.start:
             self.begin = True
             self.robot_color = color
-            if color is cfg.BLACK:
-                self.game = Game(white_player_type=cfg.GOMOCUP, size=self.size)
+            if color is utils.BLACK:
+                self.game = Game(white_player_type=utils.GOMOCUP, size=self.size)
             else:
-                self.game = Game(black_player_type=cfg.GOMOCUP, size=self.size)
-            self.logger.info('begin play as {}'.format(cfg.COLOR[self.robot_color]))
+                self.game = Game(black_player_type=utils.GOMOCUP, size=self.size)
+            self.logger.info('begin play as {}'.format(utils.COLOR[self.robot_color]))
         else:
             raise AttributeError('game has not started')
 
@@ -36,7 +36,7 @@ class Gomocup(object):
             self.game.round_process(move)
         else:
             move = self.game.round_process()
-        self.logger.info('{}: ({},{})'.format(cfg.COLOR[self.robot_color], *move))
+        self.logger.info('{}: ({},{})'.format(utils.COLOR[self.robot_color], *move))
         return move
 
     def oppo_move(self, move=None):
@@ -44,7 +44,7 @@ class Gomocup(object):
             self.game.round_process(move)
         else:
             raise AttributeError('gomocup player does not get move')
-        self.logger.info('{}: ({},{})'.format(cfg.COLOR[-self.robot_color], *move))
+        self.logger.info('{}: ({},{})'.format(utils.COLOR[-self.robot_color], *move))
 
     def do_command(self, cmd):
         try:
@@ -55,9 +55,9 @@ class Gomocup(object):
             if self.get_board:
                 if cmds[0] == 'DONE':
                     if not self.board_queue.qsize() % 2:
-                        self.start_game(cfg.BLACK)
+                        self.start_game(utils.BLACK)
                     else:
-                        self.start_game(cfg.WHITE)
+                        self.start_game(utils.WHITE)
                     while not self.board_queue.empty():
                         move, color = self.board_queue.get()
                         if color is 1:
@@ -83,14 +83,14 @@ class Gomocup(object):
                     raise AttributeError('unsupported size or other error')
 
             elif cmds[0] == 'BEGIN':
-                self.start_game(cfg.BLACK)
+                self.start_game(utils.BLACK)
                 move = self.game.round_process()
-                self.logger.info('{}: ({},{})'.format(cfg.COLOR[self.robot_color], *move))
+                self.logger.info('{}: ({},{})'.format(utils.COLOR[self.robot_color], *move))
                 return '{},{}'.format(*move)
 
             elif cmds[0] == 'TURN':
                 if not self.begin:
-                    self.start_game(cfg.WHITE)
+                    self.start_game(utils.WHITE)
                 oppo_move = list(map(int, cmds[1].split(',')))
                 self.logger.info(oppo_move)
                 self.oppo_move(oppo_move)
@@ -148,7 +148,7 @@ def main():
     socket = SocketClient(*SOCKET_INIT_PARA)
     while True:
         try:
-            socket.bind_addr(cfg.HOST, cfg.PORT)
+            socket.bind_addr(utils.HOST, utils.PORT)
             logger.info('socket bind success')
             break
         except:

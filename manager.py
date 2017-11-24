@@ -4,10 +4,9 @@ import sys
 import subprocess
 import win32console
 import pywintypes
-import config as cfg
+import utils
 from utils.socket import SocketServer, SOCKET_INIT_PARA
 from utils.logger import Logger
-from utils import ROOT_PATH, LOG_PATH
 
 def recv_msg():
     """read a line from sys.stdin"""
@@ -27,17 +26,17 @@ def main():
     except pywintypes.error:
         pass
 
-    file_name = os.path.join(LOG_PATH, 'temp')
+    file_name = os.path.join(utils.LOG_PATH, 'temp')
     pipe = open(file_name, 'w+')
     process = subprocess.Popen(
-        ['python', os.path.join(ROOT_PATH, 'gomocup.py')],
+        ['python', os.path.join(utils.ROOT_PATH, 'gomocup.py')],
         stderr=pipe,
         stdout=pipe
     )
     logger = Logger('manager', handlers=['File'])
     logger.info('start background process')
     socket = SocketServer(*SOCKET_INIT_PARA)
-    socket.bind_addr(cfg.HOST, cfg.PORT)
+    socket.bind_addr(utils.HOST, utils.PORT)
     logger.info('socket bind success')
     # a = process.communicate()
 
