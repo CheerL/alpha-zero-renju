@@ -10,8 +10,9 @@ else:
 
 LOG_PATH = os.path.join(ROOT_PATH, 'log')
 RECORD_PATH = os.path.join(ROOT_PATH, 'record')
+DB_PATH = os.path.join(ROOT_PATH, 'db')
 
-for path in [LOG_PATH, RECORD_PATH]:
+for path in [LOG_PATH, RECORD_PATH, DB_PATH]:
     if not os.path.exists(path):
         os.mkdir(path)
 

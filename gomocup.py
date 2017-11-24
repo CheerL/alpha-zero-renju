@@ -1,9 +1,10 @@
 import time
 import utils
-from queue import Queue
-from game import Game
 from utils.socket import SocketClient, SOCKET_INIT_PARA
 from utils.logger import Logger
+from queue import Queue
+from game import Game
+
 
 class Gomocup(object):
     logger = Logger('gomocup')

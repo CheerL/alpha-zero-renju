@@ -4,8 +4,8 @@ from __future__ import print_function
 import os
 import time
 import utils
-from player import HumanPlayer, RandomPlayer, GomocupPlayer, MCTSPlayer
 from utils.logger import Logger
+from player import HumanPlayer, RandomPlayer, GomocupPlayer, MCTSPlayer
 
 class Game(object):
     RESULT = {

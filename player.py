@@ -2,10 +2,10 @@
 import logging
 import numpy as np
 import utils
+from utils.logger import Logger
 from collections import deque, namedtuple
 from board import Board
 from mcts import MCT
-from utils.logger import Logger
 
 History = namedtuple('History', ['board', 'x', 'y', 'probability'])
 

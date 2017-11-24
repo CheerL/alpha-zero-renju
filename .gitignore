@@ -5,6 +5,7 @@ record/*
 dist/*
 log/*
 src/*
+db/*
 test*
 *.exe
 *.pyc
