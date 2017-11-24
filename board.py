@@ -25,13 +25,13 @@ class Board(object):
         '''将序号`index`变为坐标`(x, y)`'''
         return index % self.size, index // self.size
 
-    def row(self, x):
-        '''获取第`x`行'''
-        return self.board[x * self.size: (x + 1) * self.size]
+    def row(self, y):
+        '''获取第`y`行'''
+        return self.board[y * self.size: (y + 1) * self.size]
 
-    def col(self, y):
-        '''获取第`y`列'''
-        return self.board[y::self.size]
+    def col(self, x):
+        '''获取第`x`列'''
+        return self.board[x::self.size]
 
     def diag(self, x, y):
         '''获取`(x, y)`处对角线'''
@@ -49,7 +49,7 @@ class Board(object):
 
     def judge_win(self, x, y):
         '''检查`(x, y)`周围情况, 判断是否获胜'''
-        lines = [self.row(x), self.col(y), self.diag(x, y), self.back_diag(x, y)]
+        lines = [self.row(y), self.col(x), self.diag(x, y), self.back_diag(x, y)]
         for line in lines:
             if line.size < cfg.WIN_NUM:
                 continue
@@ -57,10 +57,6 @@ class Board(object):
                 if cfg.WIN_NUM in np.correlate(line, self.WIN_PATTERN):
                     return True
         return False
-
-    def show(self):
-        '''以`size * size`(默认`15 * 15`)的矩阵形式输出'''
-        return self.board.reshape(self.size, self.size) * self.color
 
     # def generate_matrix_trans(self):
     #     rotat_0 = lambda m: m

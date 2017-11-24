@@ -3,18 +3,17 @@ This is a "pure" implementation of the AlphaGo MCTS algorithm in that it is not 
 game of Go; everything in this file is implemented generically with respect to some state, actions,
 policy function, and value function.
 """
-import numpy as np
 from copy import deepcopy
+from scipy.stats import dirichlet
+import numpy as np
 
 class MCTNode(object):
     """A node in the MCTS tree. Each node keeps track of its own value Q, prior probability P, and
     its visit-count-adjusted prior score u.
     """
-
-    def __init__(self, parent, prior_prob, c_puct=5):
-        self.c_puct = c_puct
+    def __init__(self, parent, prior_prob):
         self.parent = parent
-        self.children = {}      # a map from action to TreeNode
+        self.children = {}      # a map from action
         self.P = prior_prob     # prior prob
         self.N = 0              # visit time
         self.W = 0              # total action value
@@ -22,7 +21,8 @@ class MCTNode(object):
 
     def get_Q_plus_U(self):
         '''Q + U'''
-        U = self.c_puct * self.P * (self.parent.N ** 0.5) / (1 + self.N)
+        c_puct = 5
+        U = c_puct * self.P * (self.parent.N ** 0.5) / (1 + self.N)
         return self.Q + U
 
     def expand(self, action_probs):
@@ -34,7 +34,7 @@ class MCTNode(object):
         None
         """
         for action, prob in action_probs.items():
-            self.children[action] = TreeNode(self, prob)
+            self.children[action] = MCTNode(self, prob)
 
     def select(self):
         """Select action among children that gives maximum action value, Q plus bonus u(P).
@@ -77,7 +77,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, evaluate_fn, max_evaluate_time=1600, tau=3):
+    def __init__(self, evaluate_fn, size, max_evaluate_time=1600):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -92,9 +92,13 @@ class MCT(object):
             should be used only in conjunction with a large value for n_playout.
         """
         self.root = MCTNode(None, 1.0)
+        self.full_size = size ** 2
         self.evaluate_fn = evaluate_fn                  # network evaluate function
         self.max_evaluate_time = max_evaluate_time      # max evaluate time
-        self.tau = tau                                  # temperature para
+        self.tau = 1                                    # temperature para
+                                                        # round < 30    : 1
+                                                        # round >= 30   : 0.0001
+        self.dirichlet_noise_distribute = None
 
     def play(self, state):
         """Run a single playout from the root to the given depth, getting a value at the leaf and
@@ -125,6 +129,13 @@ class MCT(object):
         """Use the rollout policy to play until the end of the game, returning +1 if the current
         player wins, -1 if the opponent wins, and 0 if it is a tie.
         """
+        # net work evaluate + Dirichlet noise
+        if not self.dirichlet_noise_distribute:
+            alpha = np.ones(self.full_size) * 0.03
+            self.dirichlet_noise_distribute = dirichlet(alpha)
+
+        noise_rate = 0.25
+        noise = self.dirichlet_noise_distribute.rvs()[0]
         raise NotImplementedError()
 
     def get_move_probability(self, state):
@@ -149,7 +160,7 @@ class MCT(object):
             if self.root.children and last_move in self.root.children:
                 self.root = self.root.children[move]
             else:
-                self.root = TreeNode(None, 1.0)
+                self.root = MCTNode(None, 1.0)
 
         _update(move)
         _update(oppo_move)

@@ -1,5 +1,8 @@
+import os
+import time
 import config as cfg
 from player import HumanPlayer, RandomPlayer, GomocupPlayer, MCTSPlayer
+from utils import RECORD_PATH
 from utils.logger import Logger
 
 class Game(object):
@@ -59,23 +62,24 @@ class Game(object):
         return undo, oppo_undo
 
     def round_process(self, move=None):
+        now_player = self.now_player
         if not move:
-            if self.now_player.player_type is not cfg.GOMOCUP:
-                move = self.now_player.get_move()
+            if now_player.player_type is not cfg.GOMOCUP:
+                move = now_player.get_move()
             else:
                 msg = 'gomocup player does not get move'
                 self.logger.error(msg)
                 raise NotImplementedError(msg)
 
-        self.now_player.move(*move)
+        now_player.move(*move)
         self.logger.info('Round {}, {}: ({}:{})'.format(
             self.round_num, cfg.COLOR[self.player_color], *move
         ))
-        if self.now_player.board.judge_win(*move):
+        if now_player.board.judge_win(*move):
             self.winner = self.player_color
             self.game_over()
             # 输出结果
-        elif self.round_num is self.now_player.board.full_size - 1:
+        elif self.round_num is now_player.board.full_size - 1:
             self.game_over()
         else:
             self.player_color *= -1
@@ -99,9 +103,42 @@ class Game(object):
     def game_over(self):
         self.run = False
         self.logger.info('Game over, {}'.format(self.RESULT[self.winner]))
+        self.save_record()
 
-    def show(self):
-        print(self.players[cfg.BLACK].board.show() + self.players[cfg.WHITE].board.show())
+    @property
+    def show_board(self):
+        return self.black_player.show_board + self.white_player.show_board
+
+    def show(self, board):
+        show_board = board.astype(object)
+        show_board[show_board == cfg.BLACK] = '㊣'
+        show_board[show_board == cfg.WHITE] = '〇'
+        show_board[show_board == cfg.EMPTY] = '　'
+        # show_board[show_board == cfg.BLACK] = '★'
+        # show_board[show_board == cfg.WHITE] = '☆'
+        # show_board[show_board == cfg.EMPTY] = '　'
+
+        for line in show_board:
+            print(''.join(line))
+
+    def save_record(self):
+        time_suffix = time.strftime('%Y%m%d-%H%M%S',time.localtime())
+        record_filename = 'record-{}.psq'.format(time_suffix)
+        record_path = os.path.join(RECORD_PATH, record_filename)
+
+        with open(record_path, 'w+') as file:
+            file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.size, self.size))
+            while True:
+                try:
+                    history = self.black_player.history.pop()
+                    file.write('{},{},0\n'.format(history.x + 1, history.y + 1))
+                    history = self.white_player.history.pop()
+                    file.write('{},{},0\n'.format(history.x + 1, history.y + 1))
+                except IndexError:
+                    break
+            file.write('-1\n')
+
+        self.logger.info('Save record to {}'.format(record_filename))
 
 if __name__ == '__main__':
     from game import Game

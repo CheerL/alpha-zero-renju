@@ -39,6 +39,11 @@ class Player(object):
         history = History(self.board.board.copy(), x, y, None)
         self.history.appendleft(history)
 
+    @property
+    def show_board(self):
+        '''以`size * size`的矩阵形式输出'''
+        return self.board.board.reshape(self.board.size, self.board.size) * self.color
+
 
 class GomocupPlayer(Player):
     def __init__(self, color, size):
