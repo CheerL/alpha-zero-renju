@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 """Monte Carlo Tree Search, as described in Silver et al 2015.
 This is a "pure" implementation of the AlphaGo MCTS algorithm in that it is not specific to the
 game of Go; everything in this file is implemented generically with respect to some state, actions,

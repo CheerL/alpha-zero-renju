@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+
 # color
 BLACK = 1
 WHITE = -1

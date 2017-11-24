@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import logging
 import numpy as np
 import config as cfg
@@ -47,17 +48,17 @@ class Player(object):
 
 class GomocupPlayer(Player):
     def __init__(self, color, size):
-        super().__init__(color, cfg.GOMOCUP, size)
+        super(GomocupPlayer, self).__init__(color, cfg.GOMOCUP, size)
 
 
 class HumanPlayer(Player):
     def __init__(self, color, size):
-        super().__init__(color, cfg.HUMAN, size)
+        super(HumanPlayer, self).__init__(color, cfg.HUMAN, size)
 
 
 class RandomPlayer(Player):
     def __init__(self, color, size):
-        super().__init__(color, cfg.RANDOM, size)
+        super(RandomPlayer, self).__init__(color, cfg.RANDOM, size)
 
     def get_move(self):
         empty_pos = np.where(self.board.board + self.oppo_board.board == 0)[0]
@@ -66,7 +67,7 @@ class RandomPlayer(Player):
 
 class MCTSPlayer(Player):
     def __init__(self, color, size):
-        super().__init__(color, cfg.MCTS, size)
+        super(MCTSPlayer, self).__init__(color, cfg.MCTS, size)
         self.move_probability = None
 
     def add_history(self, x, y):

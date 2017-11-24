@@ -1,3 +1,6 @@
+# -*- coding:utf-8 -*-
+from __future__ import print_function
+
 import os
 import time
 import config as cfg
@@ -141,6 +144,5 @@ class Game(object):
         self.logger.info('Save record to {}'.format(record_filename))
 
 if __name__ == '__main__':
-    from game import Game
-    import config as cfg
-    g = Game(cfg.RANDOM, cfg.RANDOM, cfg.SIZE)
+    game = Game()
+    game.start()

@@ -7,3 +7,4 @@ log/*
 src/*
 test*
 *.exe
+*.pyc
