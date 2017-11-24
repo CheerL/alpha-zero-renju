@@ -4,8 +4,10 @@ game of Go; everything in this file is implemented generically with respect to s
 policy function, and value function.
 """
 from copy import deepcopy
-from scipy.stats import dirichlet
+
 import numpy as np
+from scipy.stats import dirichlet
+
 
 class MCTNode(object):
     """A node in the MCTS tree. Each node keeps track of its own value Q, prior probability P, and
@@ -77,7 +79,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, evaluate_fn, size, max_evaluate_time=1600):
+    def __init__(self, evaluate_fn, size, max_evaluate_time=1600, tau=1):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -95,9 +97,9 @@ class MCT(object):
         self.full_size = size ** 2
         self.evaluate_fn = evaluate_fn                  # network evaluate function
         self.max_evaluate_time = max_evaluate_time      # max evaluate time
-        self.tau = 1                                    # temperature para
+        self.tau = tau                                  # temperature para
                                                         # round < 30    : 1
-                                                        # round >= 30   : 0.0001
+                                                        # round >= 30   : 0.01
         self.dirichlet_noise_distribute = None
 
     def play(self, state):
@@ -164,3 +166,7 @@ class MCT(object):
 
         _update(move)
         _update(oppo_move)
+
+    def get_move(self, probability):
+        move_index = np.random.choice(np.arange(self.full_size), p=probability)
+        return move_index
