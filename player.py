@@ -3,11 +3,11 @@ import logging
 import numpy as np
 import utils
 from utils.logger import Logger
-from collections import deque, namedtuple
+from collections import namedtuple
 from board import Board
 from mcts import MCT
 
-History = namedtuple('History', ['board', 'x', 'y', 'probability'])
+History = namedtuple('History', ['board', 'x', 'y', 'state'])
 
 class Player(object):
     logger = Logger('game')
@@ -17,7 +17,7 @@ class Player(object):
         self.player_type = player_type
         self.board = Board(color, size)
         self.oppo_board = None
-        self.history = deque()
+        self.history = list()
         self.logger.info('Create new {} player'.format(utils.COLOR[self.color]))
 
     def move(self, x, y):
@@ -31,14 +31,14 @@ class Player(object):
         # print(msg)
 
     def undo(self):
-        history = self.history.popleft()
+        history = self.history.pop()
         self.board.board = history.board
         self.logger.info('{} undo: ({},{})'.format(utils.COLOR[self.color], history.x, history.y))
         return utils.COLOR[self.color], history.x, history.y
 
     def add_history(self, x, y):
         history = History(self.board.board.copy(), x, y, None)
-        self.history.appendleft(history)
+        self.history.append(history)
 
     @property
     def show_board(self):

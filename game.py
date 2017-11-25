@@ -1,10 +1,12 @@
 # -*- coding:utf-8 -*-
 from __future__ import print_function
+from __future__ import division
 
 import os
 import time
 import utils
 from utils.logger import Logger
+from utils.database import LMDB
 from player import HumanPlayer, RandomPlayer, GomocupPlayer, MCTSPlayer
 
 class Game(object):
@@ -130,14 +132,11 @@ class Game(object):
 
         with open(record_path, 'w+') as file:
             file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.size, self.size))
-            while True:
-                try:
-                    history = self.black_player.history.pop()
-                    file.write('{},{},0\n'.format(history.x + 1, history.y + 1))
-                    history = self.white_player.history.pop()
-                    file.write('{},{},0\n'.format(history.x + 1, history.y + 1))
-                except IndexError:
-                    break
+
+            for i in range(self.round_num + 1):
+                history = self.players[(-1)**i].history[i // 2]
+                file.write('{},{},0\n'.format(history.x + 1, history.y + 1))
+
             file.write('-1\n')
 
         self.logger.info('Save record to {}'.format(record_filename))
