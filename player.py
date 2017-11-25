@@ -10,18 +10,23 @@ class Player(object):
 
     def __init__(self, color, player_type, board):
         self.color = color
+        self.color_str = utils.COLOR[color]
         self.player_type = player_type
         self.board = board
-        self.logger.info('Create new {} player'.format(utils.COLOR[self.color]))
+        self.logger.info('Create new {} player'.format(self.color_str))
 
     def move(self, x, y):
         '''在`(x, y)`处落子'''
         index = self.board.xy2index(x, y)
         assert self.board.board[index] == utils.EMPTY, '目标位置已经有子'
         self.board.board[index] = self.color
+        self.logger.info('{}: ({}:{})'.format(self.color_str, x, y))
 
     def undo(self, x, y):
-        self.logger.info('{} undo: ({},{})'.format(utils.COLOR[self.color], x, y))
+        self.logger.info('{} undo: ({},{})'.format(self.color_str, x, y))
+
+    def win(self):
+        self.logger.info('{} win'.format(self.color_str))
 
     def judge_win(self, x, y):
         return self.board.judge_win(x, y, self.color)
@@ -50,6 +55,7 @@ class RandomPlayer(Player):
         index = np.random.choice(self.board.empty_pos)
         return self.board.index2xy(index)
 
+
 class MCTSPlayer(Player):
     def __init__(self, color, board):
         super(MCTSPlayer, self).__init__(color, utils.MCTS, board)
@@ -68,3 +74,17 @@ class MCTSPlayer(Player):
     def undo(self, x, y):
         super(MCTSPlayer, self).undo()
         self.probability = self.prob_history.pop()
+
+
+def player_generate(player_type, color, board):
+    PLAYER_DICT = {
+        utils.HUMAN: HumanPlayer,
+        utils.GOMOCUP: GomocupPlayer,
+        utils.RANDOM: RandomPlayer,
+        utils.MCTS: MCTSPlayer
+    }
+
+    if player_type not in PLAYER_DICT:
+        raise AttributeError('no such player type')
+
+    return PLAYER_DICT[player_type](color, board)

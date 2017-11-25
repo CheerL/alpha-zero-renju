@@ -7,32 +7,21 @@ import time
 import utils
 from utils.logger import Logger
 from utils.database import LMDB
-from player_single import HumanPlayer, RandomPlayer, GomocupPlayer, MCTSPlayer
-from board_single import Board
+from player import player_generate
+from board import Board
 from collections import namedtuple
 
 History = namedtuple('History', ['board', 'x', 'y'])
 
 class Game(object):
-    RESULT = {
-        utils.BLACK: 'Black win',
-        utils.WHITE: 'White win',
-        utils.EMPTY: 'end in a draw'
-    }
-    PLAYER = {
-        utils.HUMAN: HumanPlayer,
-        utils.GOMOCUP: GomocupPlayer,
-        utils.MCTS: MCTSPlayer,
-        utils.RANDOM: RandomPlayer
-    }
     logger = Logger('game', handlers=['File'])
 
     def __init__(self, black_player_type=utils.RANDOM,
                  white_player_type=utils.RANDOM, size=utils.SIZE):
         self.board = Board(size)
         self.players = {
-            utils.BLACK: self.PLAYER[black_player_type](utils.BLACK, self.board),
-            utils.WHITE: self.PLAYER[white_player_type](utils.WHITE, self.board)
+            utils.BLACK: player_generate(black_player_type, utils.BLACK, self.board),
+            utils.WHITE: player_generate(white_player_type, utils.WHITE, self.board)
         }
         self.size = size
         self.full_size = size ** 2        
@@ -65,47 +54,42 @@ class Game(object):
         return self.players[-self.player_color]
 
     def add_history(self, x, y):
-        history = History(self.board.board.copy, x, y)
-        self.history.append(history)
+        self.history.append(History(self.board.board.copy(), x, y))
 
     def round_back(self):
         if self.round_num > 0:
             history = self.history.pop()
             self.now_player.undo(history.x, history.y)
-            self.board.set_board(history.board)
+            self.board.set_board(self.history[-1].board)
             self.round_num -= 1
             self.player_color *= -1
             self.logger.info('Round back to {}'.format(self.round_num))
+            del history
         else:
-            self.logger.warn('That is the first round')
+            self.logger.warning('That is the first round')
 
     def round_process(self, move=None):
-        now_player = self.now_player
-
+        self.logger.info('Round {}'.format(self.round_num))
         if not move:
-            if now_player.player_type is not utils.GOMOCUP:
-                move = now_player.get_move()
+            if self.now_player.player_type is not utils.GOMOCUP:
+                move = self.now_player.get_move()
             else:
-                msg = 'gomocup player does not get move'
-                self.logger.error(msg)
-                raise AttributeError(msg)
+                raise AttributeError('gomocup player does not get move')
 
-        now_player.move(*move)
+        self.now_player.move(*move)
         self.add_history(*move)
-        self.logger.info('Round {}, {}: ({}:{})'.format(
-            self.round_num, utils.COLOR[self.player_color], *move
-        ))
 
-        if now_player.judge_win(*move):
+        if self.now_player.judge_win(*move):
             self.winner = self.player_color
             self.game_over()
             # 输出结果
-        elif self.round_num is 100:
-        # elif self.round_num is self.full_size - 1:
+        elif self.round_num is self.full_size - 1:
+        # elif self.round_num is 100:
             self.game_over()
         else:
             self.player_color *= -1
             self.round_num += 1
+
         return move
 
     def start(self):
@@ -119,33 +103,41 @@ class Game(object):
             white_player_type = self.white_player.player_type
         if not size:
             size = self.size
+
         self.__init__(black_player_type, white_player_type, size)
         self.start()
 
     def game_over(self):
-        self.run = False
-        self.logger.info('Game over, {}'.format(self.RESULT[self.winner]))
+        self.logger.info('Game over')
+        if self.winner is utils.EMPTY:
+            self.logger.info('End in a draw')
+        else:
+            self.now_player.win()
+
         self.save_record()
+        self.run = False        
 
     def show(self, board):
         show_board = board.astype(object)
         show_board[show_board == utils.BLACK] = '㊣'
         show_board[show_board == utils.WHITE] = '〇'
         show_board[show_board == utils.EMPTY] = '　'
-        # show_board[show_board == utils.BLACK] = '★'
-        # show_board[show_board == utils.WHITE] = '☆'
-        # show_board[show_board == utils.EMPTY] = '　'
 
         for line in show_board:
             print(''.join(line))
 
     def save_record(self):
+        def get_path_from_format(formater, suffix=''):
+            path = formater.format(suffix)
+            if os.path.exists(path):
+                return get_path_from_format(formater, suffix + '_')
+            else:
+                return path
+
         time_suffix = time.strftime('%Y%m%d-%H%M%S',time.localtime())
-        record_filename = 'record-{}.psq'.format(time_suffix)
-        record_path = os.path.join(utils.RECORD_PATH, record_filename)
-        while os.path.exists(record_path):
-            record_filename = '_' + record_filename
-            record_path = os.path.join(utils.RECORD_PATH, record_filename)
+        record_filename = 'record-{}.psq'.format(time_suffix + '{}')
+        record_path_format = os.path.join(utils.RECORD_PATH, record_filename)
+        record_path = get_path_from_format(record_path_format)
 
         with open(record_path, 'w+') as file:
             file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.size, self.size))
@@ -158,8 +150,9 @@ class Game(object):
         self.logger.info('Save record to {}'.format(record_filename))
 
 def main():
-    game = Game()
-    game.start()
+    for _ in range(100):
+        game = Game()
+        game.start()
 
 if __name__ == '__main__':
     main()

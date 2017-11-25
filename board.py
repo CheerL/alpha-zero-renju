@@ -20,7 +20,7 @@ class Board(object):
         self.board[index] = val
 
     def set_board(self, board):
-        if isinstance(board, np.ndarray) and board.size is self.full_size:
+        if isinstance(board, np.ndarray) and board.size == self.full_size:
             self.board = board
         else:
             raise AttributeError('given board is not np.array or does not match the size')
@@ -70,7 +70,7 @@ class Board(object):
     def get_color_board(self, color, board=None):
         if not board:
             board = self.board
-        elif not isinstance(board, np.ndarray) or not board.size is self.full_size:
+        elif not isinstance(board, np.ndarray) or not board.size == self.full_size:
             raise AttributeError('given board is not np.array or does not match the size')
 
         if color not in [utils.BLACK, utils.WHITE]:
