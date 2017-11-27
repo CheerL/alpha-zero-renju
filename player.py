@@ -1,4 +1,6 @@
 # -*- coding:utf-8 -*-
+from __future__ import unicode_literals
+
 import logging
 import numpy as np
 import utils
@@ -6,7 +8,7 @@ from utils.logger import Logger
 from mcts import MCT
 
 class Player(object):
-    logger = Logger('game', handlers=['File'])
+    logger = Logger('game')
 
     def __init__(self, color, player_type, board):
         self.color = color

@@ -1,4 +1,6 @@
 # -*- coding:utf-8 -*-
+from __future__ import unicode_literals
+
 from caffe2.python import core, model_helper, brew, utils, workspace
 from caffe2.proto import caffe2_pb2
 

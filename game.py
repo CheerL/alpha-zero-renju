@@ -1,5 +1,6 @@
 # -*- coding:utf-8 -*-
 from __future__ import print_function
+from __future__ import unicode_literals
 from __future__ import division
 
 import os
@@ -14,7 +15,7 @@ from collections import namedtuple
 History = namedtuple('History', ['board', 'x', 'y'])
 
 class Game(object):
-    logger = Logger('game', handlers=['File'])
+    logger = Logger('game')
 
     def __init__(self, black_player_type=utils.RANDOM,
                  white_player_type=utils.RANDOM, size=utils.SIZE):
@@ -149,10 +150,10 @@ class Game(object):
 
         self.logger.info('Save record to {}'.format(record_filename))
 
+
 def main():
-    for _ in range(100):
-        game = Game()
-        game.start()
+    game = Game()
+    game.start()
 
 if __name__ == '__main__':
     main()

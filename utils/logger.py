@@ -19,16 +19,16 @@ class Logger(logging.Logger):
     """
     LogHandler
     """
-    def __init__(self, name, level=logging.DEBUG, handlers=['File', 'Stream']):
+    def __init__(self, name, level=logging.DEBUG, handlers=['file', 'stream']):
         self.name = name
         self.level = level
+        self.file_handler = None
+        self.stream_handler = None
         logging.Logger.__init__(self, self.name, level=level)
-        # self.__setFileHandler__()
-        # self.__setStreamHandler__()
         for handler in handlers:
-            getattr(self, '__set{}Handler__'.format(handler))()
+            getattr(self, 'set_{}_handler'.format(handler))()
 
-    def __setFileHandler__(self, level=None):
+    def set_file_handler(self, level=None):
         """
         set file handler
         :param level:
@@ -54,7 +54,7 @@ class Logger(logging.Logger):
         self.file_handler = file_handler
         self.addHandler(file_handler)
 
-    def __setStreamHandler__(self, level=None):
+    def set_stream_handler(self, level=None):
         """
         set stream handler
         :param level:
@@ -67,6 +67,7 @@ class Logger(logging.Logger):
             stream_handler.setLevel(self.level)
         else:
             stream_handler.setLevel(level)
+        self.stream_handler = stream_handler
         self.addHandler(stream_handler)
 
     def resetName(self, name):
@@ -78,6 +79,17 @@ class Logger(logging.Logger):
         self.name = name
         self.removeHandler(self.file_handler)
         self.__setFileHandler__()
+
+    def remove_file_handler(self):
+        if self.file_handler:
+            self.removeHandler(self.file_handler)
+            self.file_handler = None
+
+    def remove_stream_handler(self):
+        if self.stream_handler:
+            self.removeHandler(self.stream_handler)
+            self.stream_handler = None
+
 
 if __name__ == '__main__':
     l = Logger('test')

@@ -4,8 +4,9 @@ This is a "pure" implementation of the AlphaGo MCTS algorithm in that it is not 
 game of Go; everything in this file is implemented generically with respect to some state, actions,
 policy function, and value function.
 """
-from copy import deepcopy
+from __future__ import unicode_literals
 
+from copy import deepcopy
 import numpy as np
 from scipy.stats import dirichlet
 
