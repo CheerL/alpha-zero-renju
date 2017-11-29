@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 import sys
 import os
+from collections import namedtuple
 
 # path
 if getattr(sys, 'frozen', False):
@@ -15,6 +16,9 @@ DB_PATH = os.path.join(ROOT_PATH, 'db')
 for path in [LOG_PATH, RECORD_PATH, DB_PATH]:
     if not os.path.exists(path):
         os.mkdir(path)
+
+# move structure
+Move = namedtuple('Move', ['x', 'y'])
 
 # color
 BLACK = 1
@@ -36,3 +40,5 @@ WIN_NUM = 5
 HOST = 'localhost'
 PORT = 10329
 
+# network
+BOARD_HISTORY_LENGTH = 7

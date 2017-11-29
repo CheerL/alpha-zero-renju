@@ -1,57 +1,70 @@
 # -*- coding:utf-8 -*-
 from __future__ import unicode_literals
 
-import logging
 import numpy as np
 import utils
 from utils.logger import Logger
+from functools import partial
 from mcts import MCT
 
 class Player(object):
     logger = Logger('game')
 
-    def __init__(self, color, player_type, board):
+    def __init__(self, color, player_type, game):
         self.color = color
         self.color_str = utils.COLOR[color]
         self.player_type = player_type
-        self.board = board
+        self.game = game
+        self.board = game.board
         self.logger.info('Create new {} player'.format(self.color_str))
 
-    def move(self, x, y):
+    def move(self, move):
         '''在`(x, y)`处落子'''
-        index = self.board.xy2index(x, y)
-        assert self.board.board[index] == utils.EMPTY, '目标位置已经有子'
-        self.board.board[index] = self.color
-        self.logger.info('{}: ({}:{})'.format(self.color_str, x, y))
+        self.board.move(move, self.color)
+        self.logger.info('{}: ({}:{})'.format(self.color_str, move.x, move.y))
 
-    def undo(self, x, y):
-        self.logger.info('{} undo: ({},{})'.format(self.color_str, x, y))
+    def undo(self, move):
+        self.board.undo(self.color)
+        self.logger.info('{} undo: ({},{})'.format(self.color_str, move.x, move.y))
 
     def win(self):
         self.logger.info('{} win'.format(self.color_str))
 
-    def judge_win(self, x, y):
-        return self.board.judge_win(x, y, self.color)
+    def judge_win(self, move):
+        return self.board.judge_win(move, self.color)
 
     @property
     def show_board(self):
         '''以`size * size`的矩阵形式输出'''
         return self.board.get_show_board(self.color)
 
+    # def get_board_history(self, round_num=None):
+    #     if not round_num:
+    #         round_num = self.game.round_num
+
+    #     if round_num < self.board_history_length:
+    #         raw_board_history = [np.zeros(self.board.full_size, dtype=np.int)] * (self.board_history_length - round_num - 1)\
+    #             + [history.board for history in self.game.history[:round_num + 1]]
+    #     else:
+    #         raw_board_history = [history.board for history in self.game.history[round_num - self.board_history_length + 1:round_num + 1]]
+
+    #     get_seperate_board = partial(self.board.get_seperate_board, self.color)
+    #     return np.concatenate(list(map(get_seperate_board, raw_board_history)))
+
 
 class GomocupPlayer(Player):
-    def __init__(self, color, board):
-        super(GomocupPlayer, self).__init__(color, utils.GOMOCUP, board)
+    def __init__(self, color, game):
+        super(GomocupPlayer, self).__init__(color, utils.GOMOCUP, game)
 
 
 class HumanPlayer(Player):
-    def __init__(self, color, board):
-        super(HumanPlayer, self).__init__(color, utils.HUMAN, board)
+    def __init__(self, color, game):
+        super(HumanPlayer, self).__init__(color, utils.HUMAN, game)
 
 
 class RandomPlayer(Player):
-    def __init__(self, color, board):
-        super(RandomPlayer, self).__init__(color, utils.RANDOM, board)
+    def __init__(self, color, game):
+        super(RandomPlayer, self).__init__(color, utils.RANDOM, game)
 
     def get_move(self):
         index = np.random.choice(self.board.empty_pos)
@@ -59,8 +72,8 @@ class RandomPlayer(Player):
 
 
 class MCTSPlayer(Player):
-    def __init__(self, color, board):
-        super(MCTSPlayer, self).__init__(color, utils.MCTS, board)
+    def __init__(self, color, game):
+        super(MCTSPlayer, self).__init__(color, utils.MCTS, game)
         self.prob_history = list()
         self.probability = None
 
@@ -72,9 +85,9 @@ class MCTSPlayer(Player):
 
     def get_move(self):
         raise NotImplementedError()
-    
-    def undo(self, x, y):
-        super(MCTSPlayer, self).undo()
+
+    def undo(self, move):
+        super(MCTSPlayer, self).undo(move)
         self.probability = self.prob_history.pop()
 
 

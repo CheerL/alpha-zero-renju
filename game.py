@@ -10,9 +10,7 @@ from utils.logger import Logger
 from utils.database import LMDB
 from player import player_generate
 from board import Board
-from collections import namedtuple
 
-History = namedtuple('History', ['board', 'x', 'y'])
 
 class Game(object):
     logger = Logger('game')
@@ -21,18 +19,17 @@ class Game(object):
                  white_player_type=utils.RANDOM, size=utils.SIZE):
         self.board = Board(size)
         self.players = {
-            utils.BLACK: player_generate(black_player_type, utils.BLACK, self.board),
-            utils.WHITE: player_generate(white_player_type, utils.WHITE, self.board)
+            utils.BLACK: player_generate(black_player_type, utils.BLACK, self),
+            utils.WHITE: player_generate(white_player_type, utils.WHITE, self)
         }
         self.size = size
-        self.full_size = size ** 2        
+        self.full_size = size ** 2
         self.round_num = 0
         self.player_color = utils.BLACK
         self.winner = utils.EMPTY
         self.run = True
         self.history = list()
 
-        self.add_history(None, None)
         self.logger.info(
             'Start new game. Board size: %d * %d, Black: %s, White: %s'
             % (size, size, type(self.black_player).__name__, type(self.white_player).__name__)
@@ -54,18 +51,17 @@ class Game(object):
     def last_player(self):
         return self.players[-self.player_color]
 
-    def add_history(self, x, y):
-        self.history.append(History(self.board.board.copy(), x, y))
+    def add_history(self, move):
+        self.history.append(move)
 
     def round_back(self):
         if self.round_num > 0:
-            history = self.history.pop()
-            self.now_player.undo(history.x, history.y)
-            self.board.set_board(self.history[-1].board)
+            last_move = self.history.pop()
+            self.now_player.undo(last_move)
             self.round_num -= 1
             self.player_color *= -1
             self.logger.info('Round back to {}'.format(self.round_num))
-            del history
+            del last_move
         else:
             self.logger.warning('That is the first round')
 
@@ -77,10 +73,10 @@ class Game(object):
             else:
                 raise AttributeError('gomocup player does not get move')
 
-        self.now_player.move(*move)
-        self.add_history(*move)
+        self.now_player.move(move)
+        self.add_history(move)
 
-        if self.now_player.judge_win(*move):
+        if self.now_player.judge_win(move):
             self.winner = self.player_color
             self.game_over()
             # 输出结果
@@ -116,7 +112,7 @@ class Game(object):
             self.now_player.win()
 
         self.save_record()
-        self.run = False        
+        self.run = False
 
     def show(self, board):
         show_board = board.astype(object)
@@ -135,7 +131,7 @@ class Game(object):
             else:
                 return path
 
-        time_suffix = time.strftime('%Y%m%d-%H%M%S',time.localtime())
+        time_suffix = time.strftime('%Y%m%d-%H%M%S', time.localtime())
         record_filename = 'record-{}.psq'.format(time_suffix + '{}')
         record_path_format = os.path.join(utils.RECORD_PATH, record_filename)
         record_path = get_path_from_format(record_path_format)
@@ -143,12 +139,12 @@ class Game(object):
         with open(record_path, 'w+') as file:
             file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.size, self.size))
 
-            for history in self.history[1:]:
-                file.write('{},{},0\n'.format(history.x + 1, history.y + 1))
+            for move in self.history:
+                file.write('{},{},0\n'.format(move.x + 1, move.y + 1))
 
             file.write('-1\n')
 
-        self.logger.info('Save record to {}'.format(record_filename))
+        self.logger.info('Save record to {}'.format(record_path))
 
 
 def main():

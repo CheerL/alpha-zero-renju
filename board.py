@@ -13,6 +13,9 @@ class Board(object):
         self.size = size
         self.full_size = self.size ** 2
         self.board = np.zeros(self.full_size, np.int)
+        self.board_history_length = utils.BOARD_HISTORY_LENGTH
+        self.black_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
+        self.white_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
 
     def __getitem__(self, index):
         return self.board[index]
@@ -20,46 +23,40 @@ class Board(object):
     def __setitem__(self, index, val):
         self.board[index] = val
 
-    def set_board(self, board):
-        if isinstance(board, np.ndarray) and board.size == self.full_size:
-            self.board = board
-        else:
-            raise AttributeError('given board is not np.array or does not match the size')
-
-    def xy2index(self, x, y):
+    def xy2index(self, move):
         '''将坐标`(x, y)`变为序号`index`'''
-        return x + y * self.size
+        return move.x + move.y * self.size
 
     def index2xy(self, index):
         '''将序号`index`变为坐标`(x, y)`'''
-        return index % self.size, index // self.size
+        return utils.Move(index % self.size, index // self.size)
 
-    def row(self, y):
+    def row(self, move):
         '''获取第`y`行'''
-        return self.board[y * self.size: (y + 1) * self.size]
+        return self.board[move.y * self.size: (move.y + 1) * self.size]
 
-    def col(self, x):
+    def col(self, move):
         '''获取第`x`列'''
-        return self.board[x::self.size]
+        return self.board[move.x::self.size]
 
-    def diag(self, x, y):
+    def diag(self, move):
         '''获取`(x, y)`处对角线'''
-        if x >= y:
-            return self.board[x - y:(self.size - (x - y)) * self.size:self.size + 1]
+        if move.x >= move.y:
+            return self.board[move.x - move.y:(self.size - (move.x - move.y)) * self.size:self.size + 1]
         else:
-            return self.board[(y - x) * self.size:self.full_size:self.size + 1]
+            return self.board[(move.y - move.x) * self.size:self.full_size:self.size + 1]
 
-    def back_diag(self, x, y):
+    def back_diag(self, move):
         '''获取`(x, y)`处反对角线'''
-        if x + y < 15:
-            return self.board[x + y:(x + y) * self.size + 1:self.size - 1]
+        if move.x + move.y < 15:
+            return self.board[move.x + move.y:(move.x + move.y) * self.size + 1:self.size - 1]
         else:
-            return self.board[(x + y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]
+            return self.board[(move.x + move.y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]
 
-    def judge_win(self, x, y, color):
+    def judge_win(self, move, color):
         '''检查`(x, y)`周围情况, 判断是否获胜'''
         target = utils.WIN_NUM * color
-        lines = [self.row(y), self.col(x), self.diag(x, y), self.back_diag(x, y)]
+        lines = [self.row(move), self.col(move), self.diag(move), self.back_diag(move)]
         for line in lines:
             if line.size < utils.WIN_NUM:
                 continue
@@ -68,8 +65,47 @@ class Board(object):
                     return True
         return False
 
+    def move(self, move_or_index, color):
+        if color not in [utils.BLACK, utils.WHITE]:
+            raise AttributeError('given color is not black or white')
+
+        if isinstance(move_or_index, utils.Move):
+            index = self.xy2index(move_or_index)
+        elif isinstance(move_or_index, int):
+            index = move_or_index
+        else:
+            raise AttributeError('neither move or index')
+
+        assert 0 <= index <self.full_size, 'index out of range'
+        assert self.board[index] == utils.EMPTY, '目标位置已经有子'
+        self.board[index] = color
+
+        if color is utils.BLACK:
+            self.black_board_history.append(self.black_board)
+        else:
+            self.white_board_history.append(self.white_board)
+
+    def undo(self, color):
+        if color is utils.BLACK:
+            if len(self.black_board_history) > self.board_history_length:
+                self.board = self.black_board_history.pop() * utils.BLACK + self.white_board_history[-1] * utils.WHITE
+        elif color is utils.WHITE:
+            if len(self.white_board_history) > self.board_history_length:
+                self.board = self.black_board_history[-1] * utils.BLACK + self.white_board_history.pop() * utils.WHITE
+        else:
+            raise AttributeError('given color is not black or white')
+
+
+    def get_color_recent_board_history(self, color):
+        if color is utils.BLACK:
+            return np.array(self.black_board_history[-self.board_history_length:] + self.white_board_history[-self.board_history_length:])
+        elif color is utils.WHITE:
+            return np.array(self.white_board_history[-self.board_history_length:] + self.black_board_history[-self.board_history_length:])
+        else:
+            raise AttributeError('given color is not black or white')
+
     def get_color_board(self, color, board=None):
-        if not board:
+        if board is None:
             board = self.board
         elif not isinstance(board, np.ndarray) or not board.size == self.full_size:
             raise AttributeError('given board is not np.array or does not match the size')
@@ -78,7 +114,7 @@ class Board(object):
             raise AttributeError('given color is not black or white')
 
         color_board = np.zeros(self.full_size, np.int)
-        color_board[board == color] = color
+        color_board[board == color] = 1
         return color_board
 
     def get_show_board(self, color=None):
@@ -87,7 +123,7 @@ class Board(object):
             return show_board.reshape(self.size, self.size)
         else:
             return self.board.reshape(self.size, self.size)
-        
+
     @property
     def show_board(self):
         return self.get_show_board()
@@ -127,5 +163,4 @@ class Board(object):
 
 
 if __name__ == '__main__':
-    white_board = Board(utils.WHITE)
-    black_board = Board(utils.BLACK)
+    pass
