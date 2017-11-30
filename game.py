@@ -7,13 +7,13 @@ import os
 import time
 import utils
 from utils.logger import Logger
-from utils.database import LMDB
 from player import player_generate
 from board import Board
 
 
 class Game(object):
     logger = Logger('game')
+    # logger.remove_stream_handler()
 
     def __init__(self, black_player_type=utils.RANDOM,
                  white_player_type=utils.RANDOM, size=utils.SIZE):
@@ -23,9 +23,8 @@ class Game(object):
             utils.WHITE: player_generate(white_player_type, utils.WHITE, self)
         }
         self.size = size
-        self.full_size = size ** 2
+        self.full_size = self.board.full_size
         self.round_num = 0
-        self.player_color = utils.BLACK
         self.winner = utils.EMPTY
         self.run = True
         self.history = list()
@@ -34,6 +33,10 @@ class Game(object):
             'Start new game. Board size: %d * %d, Black: %s, White: %s'
             % (size, size, type(self.black_player).__name__, type(self.white_player).__name__)
             )
+
+    @property
+    def now_player_color(self):
+        return self.board.now_color
 
     @property
     def black_player(self):
@@ -45,11 +48,11 @@ class Game(object):
 
     @property
     def now_player(self):
-        return self.players[self.player_color]
+        return self.players[self.now_player_color]
 
     @property
     def last_player(self):
-        return self.players[-self.player_color]
+        return self.players[-self.now_player_color]
 
     def add_history(self, move):
         self.history.append(move)
@@ -59,7 +62,6 @@ class Game(object):
             last_move = self.history.pop()
             self.now_player.undo(last_move)
             self.round_num -= 1
-            self.player_color *= -1
             self.logger.info('Round back to {}'.format(self.round_num))
             del last_move
         else:
@@ -77,16 +79,14 @@ class Game(object):
         self.add_history(move)
 
         if self.now_player.judge_win(move):
-            self.winner = self.player_color
+            self.winner = self.now_player_color
             self.game_over()
             # 输出结果
         elif self.round_num is self.full_size - 1:
         # elif self.round_num is 100:
             self.game_over()
         else:
-            self.player_color *= -1
             self.round_num += 1
-
         return move
 
     def start(self):
@@ -148,8 +148,9 @@ class Game(object):
 
 
 def main():
-    game = Game()
-    game.start()
+    for _ in range(100):
+        game = Game()
+        game.start()
 
 if __name__ == '__main__':
     main()

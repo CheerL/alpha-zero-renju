@@ -11,26 +11,16 @@ class Board(object):
 
     def __init__(self, size=utils.SIZE):
         self.size = size
+        self.now_color = utils.BLACK
         self.full_size = self.size ** 2
         self.board = np.zeros(self.full_size, np.int)
         self.board_history_length = utils.BOARD_HISTORY_LENGTH
+        self.feature_channels = self.board_history_length * 2 + 1
         self.black_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
         self.white_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
 
-    def __getitem__(self, index):
-        return self.board[index]
-
-    def __setitem__(self, index, val):
-        self.board[index] = val
-
     def get_round(self):
         return (self.board != 0).sum()
-
-    def get_color(self):
-        if self.get_round() % 2:
-            return utils.BLACK
-        else:
-            return utils.WHITE
 
     def xy2index(self, move):
         '''将坐标`(x, y)`变为序号`index`'''
@@ -62,8 +52,12 @@ class Board(object):
         else:
             return self.board[(move.x + move.y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]
 
-    def judge_win(self, move, color):
+    def judge_win(self, move):
         '''检查`(x, y)`周围情况, 判断是否获胜'''
+        color = self.board[self.xy2index(move)]
+        if color not in [utils.BLACK, utils.WHITE]:
+            raise AttributeError('given color is not black or white')
+
         target = utils.WIN_NUM * color
         lines = [self.row(move), self.col(move), self.diag(move), self.back_diag(move)]
         for line in lines:
@@ -72,12 +66,11 @@ class Board(object):
             else:
                 if target  in np.correlate(line, self.WIN_PATTERN):
                     return True
+
+        self.now_color *= -1
         return False
 
-    def move(self, move_or_index, color):
-        if color not in [utils.BLACK, utils.WHITE]:
-            raise AttributeError('given color is not black or white')
-
+    def move(self, move_or_index):
         if isinstance(move_or_index, utils.Move):
             index = self.xy2index(move_or_index)
         elif isinstance(move_or_index, int):
@@ -86,34 +79,34 @@ class Board(object):
             raise AttributeError('neither move or index')
 
         assert 0 <= index <self.full_size, 'index out of range'
-        assert self.board[index] == utils.EMPTY, '目标位置已经有子'
-        self.board[index] = color
+        assert self.board[index] == utils.EMPTY, 'target is not empty'
+        self.board[index] = self.now_color
 
-        if color is utils.BLACK:
+        if self.now_color is utils.BLACK:
             self.black_board_history.append(self.black_board)
         else:
             self.white_board_history.append(self.white_board)
 
-    def undo(self, color):
-        if color is utils.BLACK:
+    def undo(self):
+        if self.now_color is utils.BLACK:
             if len(self.black_board_history) > self.board_history_length:
                 self.board = self.black_board_history.pop() * utils.BLACK + self.white_board_history[-1] * utils.WHITE
-        elif color is utils.WHITE:
+        else:
             if len(self.white_board_history) > self.board_history_length:
                 self.board = self.black_board_history[-1] * utils.BLACK + self.white_board_history.pop() * utils.WHITE
-        else:
-            raise AttributeError('given color is not black or white')
+
+        self.now_color *= -1
 
 
     def get_feature(self, color):
         if color is utils.BLACK:
             return np.array(self.black_board_history[-self.board_history_length:]\
                 + self.white_board_history[-self.board_history_length:]\
-                + [np.ones(self.full_size)])
+                + [np.ones(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
         elif color is utils.WHITE:
             return np.array(self.white_board_history[-self.board_history_length:]\
                 + self.black_board_history[-self.board_history_length:]\
-                + [np.zeros(self.full_size)])
+                + [np.zeros(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
         else:
             raise AttributeError('given color is not black or white')
 

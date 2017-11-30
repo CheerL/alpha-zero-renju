@@ -20,18 +20,18 @@ class Player(object):
 
     def move(self, move):
         '''在`(x, y)`处落子'''
-        self.board.move(move, self.color)
+        self.board.move(move)
         self.logger.info('{}: ({}:{})'.format(self.color_str, move.x, move.y))
 
     def undo(self, move):
-        self.board.undo(self.color)
+        self.board.undo()
         self.logger.info('{} undo: ({},{})'.format(self.color_str, move.x, move.y))
 
     def win(self):
         self.logger.info('{} win'.format(self.color_str))
 
     def judge_win(self, move):
-        return self.board.judge_win(move, self.color)
+        return self.board.judge_win(move)
 
     @property
     def show_board(self):
@@ -76,6 +76,7 @@ class MCTSPlayer(Player):
         super(MCTSPlayer, self).__init__(color, utils.MCTS, game)
         self.prob_history = list()
         self.probability = None
+        self.mct = MCT(self.board)
 
     def add_history(self):
         if self.probability is not None:
@@ -84,7 +85,10 @@ class MCTSPlayer(Player):
             raise AttributeError('no probability yet')
 
     def get_move(self):
-        raise NotImplementedError()
+        self.mct.play()
+        self.probability = self.mct.get_move_probability()
+        self.add_history()
+        return self.board.index2xy(self.mct.get_move(self.probability))
 
     def undo(self, move):
         super(MCTSPlayer, self).undo(move)

@@ -5,11 +5,13 @@ game of Go; everything in this file is implemented generically with respect to s
 policy function, and value function.
 """
 from __future__ import unicode_literals
-
 from copy import deepcopy
+
+import utils
 import numpy as np
 from scipy.stats import dirichlet
 from net import DeployNet
+from board import Board
 
 
 class MCTNode(object):
@@ -46,7 +48,7 @@ class MCTNode(object):
         Returns:
         A tuple of (action, next_node)
         """
-        return max(self.children.items(), key=lambda action_node: action_node[1].Q_plus_U())
+        return max(self.children.items(), key=lambda action_node: action_node[1].get_Q_plus_U())
 
     def backup(self, value):
         """Update node values from leaf evaluation.
@@ -82,7 +84,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, board, size, max_evaluate_time=1600, tau=1):
+    def __init__(self, board, max_evaluate_time=10):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -98,16 +100,17 @@ class MCT(object):
         """
         self.root = MCTNode(None, 1.0)
         self.board = board
-        self.full_size = size ** 2
+        self.size = board.size
+        self.full_size = board.full_size
         self.max_evaluate_time = max_evaluate_time      # max evaluate time
-        self.tau = tau                                  # temperature para
+        self.tau = 1                                    # temperature para
                                                         # round < 30    : 1
                                                         # round >= 30   : 0.01
         self.dirichlet_noise_distribute = None
-        self.net = DeployNet('deploy_net', size)
+        self.net = DeployNet('deploy_net', self.size)
         self.net.build_net()
 
-    def play(self, board):
+    def play(self):
         """Run a single playout from the root to the given depth, getting a value at the leaf and
         propagating it back through its parents. State is modified in-place, so a copy must be
         provided.
@@ -119,12 +122,20 @@ class MCT(object):
         """
         evaluate_time = 0
         while evaluate_time < self.max_evaluate_time:
+            print(evaluate_time)
             node = self.root
-            temp_board = deepcopy(board)
+            temp_board = deepcopy(self.board)
             # go down to leaf node
             while not node.is_leaf():
-                index, node = node.select()
-                temp_board.move(index)
+                while True:
+                    try:
+                        index, node = node.select()
+                        temp_board.move(index)
+                        break
+                    except AssertionError:
+                        print('?')
+                        node.P = 0
+                        node = node.parent
             # come a leaf node
             predict, value = self.evaluate(temp_board)
             node.expand(predict)
@@ -137,7 +148,7 @@ class MCT(object):
         player wins, -1 if the opponent wins, and 0 if it is a tie.
         """
         # net work evaluate + Dirichlet noise
-        return self.net.predict(board.get_feature(board.get_color()))
+        return self.net.predict(board.get_feature(board.now_color))
 
     def get_move_probability(self):
         """Runs all playouts sequentially and returns the most visited action.
@@ -146,6 +157,9 @@ class MCT(object):
         Returns:
         the selected action
         """
+        if self.board.get_round() >= 30 and self.tau is 1:
+            self.tau = 0.01
+
         temperature_para = 1 / self.tau
         move_probability = np.array(
             [child.N ** temperature_para for child in self.root.children.values()],
@@ -176,3 +190,14 @@ class MCT(object):
         probability = (1 - noise_rate) * probability + noise_rate * noise
         move_index = np.random.choice(np.arange(self.full_size), p=probability)
         return move_index
+
+def main():
+    board = Board()
+    Tree = MCT(board)
+    Tree.play()
+    prob = Tree.get_move_probability()
+    move = Tree.get_move(prob)
+    print(prob, move)
+
+if __name__ == '__main__':
+    main()

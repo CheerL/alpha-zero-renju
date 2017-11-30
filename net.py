@@ -136,8 +136,8 @@ class Net(object):
             ph_conv_out,
             'ph_fc',
             dim_in=2 * self.board_full_size,
-            dim_out=self.board_full_size + 1
-            # dim_out=self.board_full_size
+            # dim_out=self.board_full_size + 1
+            dim_out=self.board_full_size
             )
         predict = brew.softmax(
             self.model,
@@ -269,7 +269,9 @@ class DeployNet(Net):
 
     @check_workspace
     def build_net(self):
-        feature = self.StopGradient('feature', 'feature')
+        if not workspace.HasBlob('feature'):
+            workspace.CreateBlob('feature')
+        feature = self.model.StopGradient('feature', 'feature')
         res_in = self.add_conv_block(feature, self.feature_channels, self.filter_num)
         for _ in range(self.res_block_num):
             res_out = self.add_res_block(res_in)
@@ -281,7 +283,7 @@ class DeployNet(Net):
 
     @check_workspace
     def predict(self, feature):
-        feature = feature.reshape([1].extend(feature.shape))
+        # feature = feature.reshape([1].extend(feature.shape)).astype(np.float32)
         workspace.FeedBlob('feature', feature)
         self.run()
         predict, value = workspace.FetchBlobs(['predict', 'value'])
