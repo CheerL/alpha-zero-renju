@@ -23,6 +23,15 @@ class Board(object):
     def __setitem__(self, index, val):
         self.board[index] = val
 
+    def get_round(self):
+        return (self.board != 0).sum()
+
+    def get_color(self):
+        if self.get_round() % 2:
+            return utils.BLACK
+        else:
+            return utils.WHITE
+
     def xy2index(self, move):
         '''将坐标`(x, y)`变为序号`index`'''
         return move.x + move.y * self.size
@@ -96,11 +105,15 @@ class Board(object):
             raise AttributeError('given color is not black or white')
 
 
-    def get_color_recent_board_history(self, color):
+    def get_feature(self, color):
         if color is utils.BLACK:
-            return np.array(self.black_board_history[-self.board_history_length:] + self.white_board_history[-self.board_history_length:])
+            return np.array(self.black_board_history[-self.board_history_length:]\
+                + self.white_board_history[-self.board_history_length:]\
+                + [np.ones(self.full_size)])
         elif color is utils.WHITE:
-            return np.array(self.white_board_history[-self.board_history_length:] + self.black_board_history[-self.board_history_length:])
+            return np.array(self.white_board_history[-self.board_history_length:]\
+                + self.black_board_history[-self.board_history_length:]\
+                + [np.zeros(self.full_size)])
         else:
             raise AttributeError('given color is not black or white')
 

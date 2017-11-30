@@ -9,6 +9,7 @@ from __future__ import unicode_literals
 from copy import deepcopy
 import numpy as np
 from scipy.stats import dirichlet
+from net import DeployNet
 
 
 class MCTNode(object):
@@ -29,7 +30,7 @@ class MCTNode(object):
         U = c_puct * self.P * (self.parent.N ** 0.5) / (1 + self.N)
         return self.Q + U
 
-    def expand(self, action_probs):
+    def expand(self, predict):
         """Expand tree by creating new children.
         Arguments:
         action_priors -- output from policy function - a list of tuples of actions and their prior
@@ -37,8 +38,8 @@ class MCTNode(object):
         Returns:
         None
         """
-        for action, prob in action_probs.items():
-            self.children[action] = MCTNode(self, prob)
+        for index, prob in enumerate(predict):
+            self.children[index] = MCTNode(self, prob)
 
     def select(self):
         """Select action among children that gives maximum action value, Q plus bonus u(P).
@@ -58,7 +59,7 @@ class MCTNode(object):
         """
         if self.parent:
             self.parent.backup(value)
-        
+
         # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
         # visits. Note that u is not normalized to be a distribution.
         self.N += 1
@@ -81,7 +82,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, evaluate_fn, size, max_evaluate_time=1600, tau=1):
+    def __init__(self, board, size, max_evaluate_time=1600, tau=1):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -96,15 +97,17 @@ class MCT(object):
             should be used only in conjunction with a large value for n_playout.
         """
         self.root = MCTNode(None, 1.0)
+        self.board = board
         self.full_size = size ** 2
-        self.evaluate_fn = evaluate_fn                  # network evaluate function
         self.max_evaluate_time = max_evaluate_time      # max evaluate time
         self.tau = tau                                  # temperature para
                                                         # round < 30    : 1
                                                         # round >= 30   : 0.01
         self.dirichlet_noise_distribute = None
+        self.net = DeployNet('deploy_net', size)
+        self.net.build_net()
 
-    def play(self, state):
+    def play(self, board):
         """Run a single playout from the root to the given depth, getting a value at the leaf and
         propagating it back through its parents. State is modified in-place, so a copy must be
         provided.
@@ -117,32 +120,26 @@ class MCT(object):
         evaluate_time = 0
         while evaluate_time < self.max_evaluate_time:
             node = self.root
-            temp_state = deepcopy(state)
+            temp_board = deepcopy(board)
             # go down to leaf node
             while not node.is_leaf():
-                action, node = node.select()
-                temp_state.move(action)
+                index, node = node.select()
+                temp_board.move(index)
             # come a leaf node
-            action_probs, value = self.evaluate(temp_state)
-            node.expand(action_probs)
+            predict, value = self.evaluate(temp_board)
+            node.expand(predict)
             node.backup(value)
             evaluate_time += 1
-            del temp_state
+            del temp_board
 
-    def evaluate(self, state):
+    def evaluate(self, board):
         """Use the rollout policy to play until the end of the game, returning +1 if the current
         player wins, -1 if the opponent wins, and 0 if it is a tie.
         """
         # net work evaluate + Dirichlet noise
-        if not self.dirichlet_noise_distribute:
-            alpha = np.ones(self.full_size) * 0.03
-            self.dirichlet_noise_distribute = dirichlet(alpha)
+        return self.net.predict(board.get_feature(board.get_color()))
 
-        noise_rate = 0.25
-        noise = self.dirichlet_noise_distribute.rvs()[0]
-        raise NotImplementedError()
-
-    def get_move_probability(self, state):
+    def get_move_probability(self):
         """Runs all playouts sequentially and returns the most visited action.
         Arguments:
         state -- the current state, including both game state and the current player.
@@ -151,7 +148,7 @@ class MCT(object):
         """
         temperature_para = 1 / self.tau
         move_probability = np.array(
-            [child ** temperature_para for child in self.root.children.values()],
+            [child.N ** temperature_para for child in self.root.children.values()],
             np.float
             )
         return move_probability / move_probability.sum()
@@ -170,5 +167,12 @@ class MCT(object):
         _update(oppo_move)
 
     def get_move(self, probability):
+        if not self.dirichlet_noise_distribute:
+            alpha = np.ones(self.full_size) * 0.03
+            self.dirichlet_noise_distribute = dirichlet(alpha)
+
+        noise_rate = 0.25
+        noise = self.dirichlet_noise_distribute.rvs()[0]
+        probability = (1 - noise_rate) * probability + noise_rate * noise
         move_index = np.random.choice(np.arange(self.full_size), p=probability)
         return move_index
