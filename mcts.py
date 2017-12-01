@@ -184,6 +184,8 @@ class MCT(object):
         noise_rate = 0.25
         noise = self.dirichlet_noise_distribute.rvs()[0]
         probability = (1 - noise_rate) * probability + noise_rate * noise
+        probability[self.board.board != 0] = 0
+        probability = probability / probability.sum()
         move_index = np.random.choice(np.arange(self.board.full_size), p=probability)
         return move_index
 
