@@ -17,13 +17,12 @@ class Game(object):
 
     def __init__(self, black_player_type=utils.RANDOM,
                  white_player_type=utils.RANDOM, size=utils.SIZE):
+        self.logger.info('Start new game. Board size: {} * {}'.format(size, size))
         self.board = Board(size)
         self.black_player = player_generate(black_player_type, utils.BLACK, self)
         self.white_player = player_generate(white_player_type, utils.WHITE, self)
         self.run = True
         self.history = list()
-
-        self.logger.info('Start new game. Board size: {} * {}'.format(size, size))
 
     @property
     def now_player_color(self):

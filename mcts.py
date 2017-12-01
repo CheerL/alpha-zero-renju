@@ -85,7 +85,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, board, max_evaluate_time=100):
+    def __init__(self, board, max_evaluate_time=10):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
