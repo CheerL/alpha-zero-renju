@@ -7,8 +7,9 @@ policy function, and value function.
 from __future__ import unicode_literals
 from copy import deepcopy
 
-import utils
+import gc
 import numpy as np
+import utils
 from scipy.stats import dirichlet
 from net import DeployNet
 from board import Board
@@ -132,6 +133,7 @@ class MCT(object):
             node.backup(value)
             evaluate_time += 1
             del temp_board
+        gc.collect()
 
     def evaluate(self, board):
         """Use the rollout policy to play until the end of the game, returning +1 if the current
