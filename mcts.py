@@ -27,6 +27,23 @@ class MCTNode(object):
         self.W = 0              # total action value
         self.Q = 0              # mean action value
 
+    def __del__(self):
+        del self.children
+
+    def release_parent(self):
+        for child in self.parent.children.values():
+            if id(child) != id(self):
+                child.release_children()
+                del child
+        
+        del self.parent
+        self.parent = None
+
+    def release_children(self):
+        for child in self.children.values():
+            child.release_children()
+            del child
+
     def get_Q_plus_U(self):
         '''Q + U'''
         c_puct = 5
@@ -133,7 +150,7 @@ class MCT(object):
             node.expand(predict)
             node.backup(value)
             evaluate_time += 1
-            temp_board.clear()
+
             del temp_board
 
         gc.collect()
@@ -176,7 +193,7 @@ class MCT(object):
         index = self.board.xy2index(last_move)
         if self.root.children and index in self.root.children:
             self.root = self.root.children[index]
-            self.root.parent = None
+            self.root.release_parent()
         else:
             self.root = MCTNode(None, 1.0)
 

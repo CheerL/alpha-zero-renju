@@ -22,7 +22,7 @@ class Board(object):
         self.black_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
         self.white_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
 
-    def clear(self):
+    def __del__(self):
         del self.board
         del self.black_board_history
         del self.white_board_history
