@@ -176,6 +176,7 @@ class MCT(object):
         index = self.board.xy2index(last_move)
         if self.root.children and index in self.root.children:
             self.root = self.root.children[index]
+            self.root.parent = None
         else:
             self.root = MCTNode(None, 1.0)
 
