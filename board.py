@@ -10,17 +10,16 @@ class Board(object):
     WIN_PATTERN = np.ones(utils.WIN_NUM, np.int)
 
     def __init__(self, size=utils.SIZE):
-        self.size = size
+        self.winner = utils.EMPTY
         self.now_color = utils.BLACK
+        self.round_num = 0
+        self.size = size
         self.full_size = self.size ** 2
         self.board = np.zeros(self.full_size, np.int)
         self.board_history_length = utils.BOARD_HISTORY_LENGTH
         self.feature_channels = self.board_history_length * 2 + 1
         self.black_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
         self.white_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
-
-    def get_round(self):
-        return (self.board != 0).sum()
 
     def xy2index(self, move):
         '''将坐标`(x, y)`变为序号`index`'''
@@ -55,8 +54,6 @@ class Board(object):
     def judge_win(self, move):
         '''检查`(x, y)`周围情况, 判断是否获胜'''
         color = self.board[self.xy2index(move)]
-        if color not in [utils.BLACK, utils.WHITE]:
-            raise AttributeError('given color is not black or white')
 
         target = utils.WIN_NUM * color
         lines = [self.row(move), self.col(move), self.diag(move), self.back_diag(move)]
@@ -65,10 +62,18 @@ class Board(object):
                 continue
             else:
                 if target  in np.correlate(line, self.WIN_PATTERN):
+                    self.winner = self.now_color
                     return True
 
-        self.now_color *= -1
         return False
+
+    def judge_round_up(self):
+        if self.round_num is self.full_size - 1:
+            return True
+        else:
+            self.round_num += 1
+            self.now_color *= -1
+            return False
 
     def move(self, move_or_index):
         if isinstance(move_or_index, utils.Move):
@@ -98,17 +103,29 @@ class Board(object):
         self.now_color *= -1
 
 
-    def get_feature(self, color):
-        if color is utils.BLACK:
-            return np.array(self.black_board_history[-self.board_history_length:]\
-                + self.white_board_history[-self.board_history_length:]\
-                + [np.ones(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
-        elif color is utils.WHITE:
-            return np.array(self.white_board_history[-self.board_history_length:]\
-                + self.black_board_history[-self.board_history_length:]\
-                + [np.zeros(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
+    def get_feature(self, color, round_num=None):
+        if round_num is None:
+            if color is utils.BLACK:
+                return np.array(self.black_board_history[-self.board_history_length:]\
+                    + self.white_board_history[-self.board_history_length:]\
+                    + [np.ones(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
+            elif color is utils.WHITE:
+                return np.array(self.white_board_history[-self.board_history_length:]\
+                    + self.black_board_history[-self.board_history_length:]\
+                    + [np.zeros(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
+            else:
+                raise AttributeError('given color is not black or white')
         else:
-            raise AttributeError('given color is not black or white')
+            if color is utils.BLACK:
+                return np.array(self.black_board_history[round_num:round_num + self.board_history_length]\
+                    + self.white_board_history[round_num:round_num + self.board_history_length]\
+                    + [np.ones(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
+            elif color is utils.WHITE:
+                return np.array(self.white_board_history[round_num:round_num + self.board_history_length]\
+                    + self.black_board_history[round_num:round_num + self.board_history_length]\
+                    + [np.zeros(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
+            else:
+                raise AttributeError('given color is not black or white')
 
     def get_color_board(self, color, board=None):
         if board is None:

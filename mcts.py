@@ -84,7 +84,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, board, max_evaluate_time=10):
+    def __init__(self, board, max_evaluate_time=100):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -122,20 +122,12 @@ class MCT(object):
         """
         evaluate_time = 0
         while evaluate_time < self.max_evaluate_time:
-            print(evaluate_time)
             node = self.root
             temp_board = deepcopy(self.board)
             # go down to leaf node
             while not node.is_leaf():
-                while True:
-                    try:
-                        index, node = node.select()
-                        temp_board.move(index)
-                        break
-                    except AssertionError:
-                        print('?')
-                        node.P = 0
-                        node = node.parent
+                index, node = node.select()
+                temp_board.move(index)
             # come a leaf node
             predict, value = self.evaluate(temp_board)
             node.expand(predict)
@@ -148,7 +140,10 @@ class MCT(object):
         player wins, -1 if the opponent wins, and 0 if it is a tie.
         """
         # net work evaluate + Dirichlet noise
-        return self.net.predict(board.get_feature(board.now_color))
+        predict, value = self.net.predict(board.get_feature(board.now_color))
+        predict[board.board != 0] = 0
+        predict = predict / predict.sum()
+        return predict, value
 
     def get_move_probability(self):
         """Runs all playouts sequentially and returns the most visited action.
@@ -171,14 +166,15 @@ class MCT(object):
         """Step forward in the tree, keeping everything we already know about the subtree, assuming
         that get_move() has been called already. Siblings of the new root will be garbage-collected.
         """
-        def _update(last_move):
-            if self.root.children and last_move in self.root.children:
-                self.root = self.root.children[move]
-            else:
-                self.root = MCTNode(None, 1.0)
-
-        _update(move)
-        _update(oppo_move)
+        self.update_one(move)
+        self.update_one(oppo_move)
+    
+    def update_one(self, last_move):
+        index = self.board.xy2index(last_move)
+        if self.root.children and index in self.root.children:
+            self.root = self.root.children[index]
+        else:
+            self.root = MCTNode(None, 1.0)
 
     def get_move(self, probability):
         if not self.dirichlet_noise_distribute:

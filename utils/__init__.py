@@ -41,4 +41,4 @@ HOST = 'localhost'
 PORT = 10329
 
 # network
-BOARD_HISTORY_LENGTH = 7
+BOARD_HISTORY_LENGTH = 5

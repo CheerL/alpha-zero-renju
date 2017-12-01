@@ -11,12 +11,12 @@ from caffe2.proto import caffe2_pb2
 # test db: feature, expect, reward
 # run db: feature
 def write_db(db_type, db_name, feature, expect, reward):
-    db_path = os.path.join(utils.DB_PATH, '{}.db'.format(db_name))
+    db_path = os.path.join(utils.DB_PATH, db_name)
     db = core.C.create_db(db_type, db_path, core.C.Mode.write)
     trans = db.new_transaction()
     label = np.argmax(expect, axis=1)
 
-    random_key = '{}_{}'.format(time.time(), np.random.rand())
+    key = str(time.time()).replace('.', '')[2:]
     for i in range(feature.shape[0]):
         proto = caffe2_pb2.TensorProtos()
         proto.protos.extend([
@@ -26,9 +26,12 @@ def write_db(db_type, db_name, feature, expect, reward):
             caffe2_utils.NumpyArrayToCaffe2Tensor(label[i])
         ])
         trans.put(
-            '{}_{i}'.format(random_key, i),
+            '{}{}'.format(key, i),
             proto.SerializeToString()
         )
+
+    trans.commit()
+    db.close()
     del db
     del trans
 

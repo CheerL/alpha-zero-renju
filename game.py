@@ -18,57 +18,43 @@ class Game(object):
     def __init__(self, black_player_type=utils.RANDOM,
                  white_player_type=utils.RANDOM, size=utils.SIZE):
         self.board = Board(size)
-        self.players = {
-            utils.BLACK: player_generate(black_player_type, utils.BLACK, self),
-            utils.WHITE: player_generate(white_player_type, utils.WHITE, self)
-        }
-        self.size = size
-        self.full_size = self.board.full_size
-        self.round_num = 0
-        self.winner = utils.EMPTY
+        self.black_player = player_generate(black_player_type, utils.BLACK, self)
+        self.white_player = player_generate(white_player_type, utils.WHITE, self)
         self.run = True
         self.history = list()
 
-        self.logger.info(
-            'Start new game. Board size: %d * %d, Black: %s, White: %s'
-            % (size, size, type(self.black_player).__name__, type(self.white_player).__name__)
-            )
+        self.logger.info('Start new game. Board size: {} * {}'.format(size, size))
 
     @property
     def now_player_color(self):
         return self.board.now_color
 
     @property
-    def black_player(self):
-        return self.players[utils.BLACK]
-
-    @property
-    def white_player(self):
-        return self.players[utils.WHITE]
-
-    @property
     def now_player(self):
-        return self.players[self.now_player_color]
+        if self.now_player_color is utils.BLACK:
+            return self.black_player
+        else:
+            return self.white_player
 
     @property
     def last_player(self):
-        return self.players[-self.now_player_color]
+        if self.now_player_color is utils.BLACK:
+            return self.white_player
+        else:
+            return self.black_player
 
     def add_history(self, move):
         self.history.append(move)
 
     def round_back(self):
-        if self.round_num > 0:
+        if self.board.round_num > 0:
             last_move = self.history.pop()
             self.now_player.undo(last_move)
-            self.round_num -= 1
-            self.logger.info('Round back to {}'.format(self.round_num))
             del last_move
         else:
             self.logger.warning('That is the first round')
 
     def round_process(self, move=None):
-        self.logger.info('Round {}'.format(self.round_num))
         if not move:
             if self.now_player.player_type is not utils.GOMOCUP:
                 move = self.now_player.get_move()
@@ -78,15 +64,10 @@ class Game(object):
         self.now_player.move(move)
         self.add_history(move)
 
-        if self.now_player.judge_win(move):
-            self.winner = self.now_player_color
+        if self.board.judge_win(move):
             self.game_over()
-            # 输出结果
-        elif self.round_num is self.full_size - 1:
-        # elif self.round_num is 100:
+        elif self.board.judge_round_up():
             self.game_over()
-        else:
-            self.round_num += 1
         return move
 
     def start(self):
@@ -99,14 +80,14 @@ class Game(object):
         if not white_player_type:
             white_player_type = self.white_player.player_type
         if not size:
-            size = self.size
+            size = self.board.size
 
         self.__init__(black_player_type, white_player_type, size)
         self.start()
 
     def game_over(self):
         self.logger.info('Game over')
-        if self.winner is utils.EMPTY:
+        if self.board.winner is utils.EMPTY:
             self.logger.info('End in a draw')
         else:
             self.now_player.win()
@@ -137,7 +118,7 @@ class Game(object):
         record_path = get_path_from_format(record_path_format)
 
         with open(record_path, 'w+') as file:
-            file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.size, self.size))
+            file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.board.size, self.board.size))
 
             for move in self.history:
                 file.write('{},{},0\n'.format(move.x + 1, move.y + 1))
@@ -148,9 +129,11 @@ class Game(object):
 
 
 def main():
-    for _ in range(100):
-        game = Game()
+    for i in range(100):
+        game = Game(utils.MCTS, utils.MCTS)
+        game.logger.info('Game {}'.format(i))
         game.start()
+        del game
 
 if __name__ == '__main__':
     main()
