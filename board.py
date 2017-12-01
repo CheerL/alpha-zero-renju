@@ -2,7 +2,6 @@
 from __future__ import division
 from __future__ import unicode_literals
 
-import gc
 import numpy as np
 import utils
 
@@ -26,7 +25,6 @@ class Board(object):
         del self.board
         del self.black_board_history
         del self.white_board_history
-        print('del')
 
     def xy2index(self, move):
         '''将坐标`(x, y)`变为序号`index`'''
