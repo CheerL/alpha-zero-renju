@@ -129,11 +129,8 @@ class Game(object):
 
 
 def main():
-    for i in range(100):
-        game = Game(utils.MCTS, utils.MCTS)
-        game.logger.info('Game {}'.format(i))
-        game.start()
-        del game
+    game = Game(utils.MCTS, utils.MCTS)
+    game.start()
 
 if __name__ == '__main__':
     main()

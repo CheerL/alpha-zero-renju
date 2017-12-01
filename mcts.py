@@ -100,14 +100,12 @@ class MCT(object):
         """
         self.root = MCTNode(None, 1.0)
         self.board = board
-        self.size = board.size
-        self.full_size = board.full_size
         self.max_evaluate_time = max_evaluate_time      # max evaluate time
         self.tau = 1                                    # temperature para
                                                         # round < 30    : 1
                                                         # round >= 30   : 0.01
         self.dirichlet_noise_distribute = None
-        self.net = DeployNet('deploy_net', self.size)
+        self.net = DeployNet('deploy_net', board.size)
         self.net.build_net()
 
     def play(self):
@@ -152,7 +150,7 @@ class MCT(object):
         Returns:
         the selected action
         """
-        if self.board.get_round() >= 30 and self.tau is 1:
+        if self.board.round_num >= 30 and self.tau is 1:
             self.tau = 0.01
 
         temperature_para = 1 / self.tau
@@ -178,13 +176,13 @@ class MCT(object):
 
     def get_move(self, probability):
         if not self.dirichlet_noise_distribute:
-            alpha = np.ones(self.full_size) * 0.03
+            alpha = np.ones(self.board.full_size) * 0.03
             self.dirichlet_noise_distribute = dirichlet(alpha)
 
         noise_rate = 0.25
         noise = self.dirichlet_noise_distribute.rvs()[0]
         probability = (1 - noise_rate) * probability + noise_rate * noise
-        move_index = np.random.choice(np.arange(self.full_size), p=probability)
+        move_index = np.random.choice(np.arange(self.board.full_size), p=probability)
         return move_index
 
 def main():
