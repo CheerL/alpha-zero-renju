@@ -42,7 +42,8 @@ class MCTNode(object):
         None
         """
         for index, prob in enumerate(predict):
-            self.children[index] = MCTNode(self, prob)
+            if prob > 0:
+                self.children[index] = MCTNode(self, prob)
 
     def select(self):
         """Select action among children that gives maximum action value, Q plus bonus u(P).
@@ -132,7 +133,9 @@ class MCT(object):
             node.expand(predict)
             node.backup(value)
             evaluate_time += 1
+            temp_board.clear()
             del temp_board
+
         gc.collect()
 
     def evaluate(self, board):

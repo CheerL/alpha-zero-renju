@@ -2,6 +2,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 
+import gc
 import numpy as np
 import utils
 
@@ -20,6 +21,11 @@ class Board(object):
         self.feature_channels = self.board_history_length * 2 + 1
         self.black_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
         self.white_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
+
+    def clear(self):
+        del self.board
+        del self.black_board_history
+        del self.white_board_history
 
     def xy2index(self, move):
         '''将坐标`(x, y)`变为序号`index`'''
