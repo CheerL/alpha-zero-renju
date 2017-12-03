@@ -7,9 +7,6 @@ from functools import wraps
 from caffe2.python import core, workspace, model_helper, brew, utils as caffe2_utils
 from caffe2.proto import caffe2_pb2
 
-# train db: feature, expect, reward
-# test db: feature, expect, reward
-# run db: feature
 def write_db(db_type, db_name, feature, expect, reward):
     db_path = os.path.join(utils.DB_PATH, db_name)
     db = core.C.create_db(db_type, db_path, core.C.Mode.write)
@@ -72,7 +69,7 @@ class Net(object):
             db=db_path,
             db_type=db_type
             )
-        
+
         feature = self.model.Cast(_feature, 'feature', to=core.DataType.FLOAT)
         expect = self.model.Cast(_expect, 'expect', to=core.DataType.FLOAT)
         reward = self.model.Cast(_reward, 'reward', to=core.DataType.FLOAT)
@@ -232,7 +229,7 @@ class TrainNet(Net):
     WORKSPACE = 'train'
 
     @check_workspace
-    def build_net(self, db_name, db_type):
+    def build(self, db_name, db_type):
         feature, expect, reward, label = self.add_db_input(db_name, db_type)
         res_in = self.add_conv_block(feature, self.feature_channels, self.filter_num)
         for _ in range(self.res_block_num):
@@ -251,7 +248,7 @@ class TestNet(Net):
     WORKSPACE = 'test'
 
     @check_workspace
-    def build_net(self, db_name, db_type):
+    def build(self, db_name, db_type):
         feature, expect, reward = self.add_db_input(db_name, db_type)
         res_in = self.add_conv_block(feature, self.feature_channels, self.filter_num)
         for _ in range(self.res_block_num):
@@ -271,12 +268,12 @@ class DeployNet(Net):
         super(DeployNet, self).__init__(name, 1, board_size)
 
     @check_workspace
-    def build_net(self):
+    def build(self):
         if not workspace.HasBlob('feature'):
             workspace.CreateBlob('feature')
         feature = self.model.StopGradient('feature', 'feature')
-        res_in = self.add_conv_block(feature, self.feature_channels, self.filter_num)
-        for _ in range(self.res_block_num):
+        res_in = self.add_conv_block(feature, utils.FEATURE_CHANNEL, utils.FILTER_NUM)
+        for _ in range(utils.RES_BLOCK_NUM):
             res_out = self.add_res_block(res_in)
             res_in = res_out
         self.add_policy_head(res_out)
@@ -293,7 +290,16 @@ class DeployNet(Net):
         return predict[0], value[0, 0]
 
 def main():
-    pass
+    import time
+    times = 20
+    net = DeployNet("deploy", utils.SIZE)
+    net.build()
+    f = np.random.sample((1, utils.FEATURE_CHANNEL, utils.SIZE, utils.SIZE))
+    st = time.time()
+    for _ in range(times):
+        net.get_predict_and_value(f)
+    et = time.time()
+    print("{}".format((et - st) / times))
 
 if __name__ == '__main__':
     main()
