@@ -283,6 +283,8 @@ class DeployNet(Net):
 
     @check_workspace
     def get_predict_and_value(self, feature):
+        if feature.dtype != np.float32:
+            feature = feature.astype(np.float32)
         # feature = feature.reshape([1].extend(feature.shape)).astype(np.float32)
         workspace.FeedBlob('feature', feature)
         self.run()
