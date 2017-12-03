@@ -282,7 +282,7 @@ class DeployNet(Net):
         self.create_net()
 
     @check_workspace
-    def predict(self, feature):
+    def get_predict_and_value(self, feature):
         # feature = feature.reshape([1].extend(feature.shape)).astype(np.float32)
         workspace.FeedBlob('feature', feature)
         self.run()
