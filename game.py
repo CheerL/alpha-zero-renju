@@ -67,22 +67,31 @@ class Game(object):
             self.game_over()
         elif self.board.judge_round_up():
             self.game_over()
+        else:
+            self.board.round_change(1)
         return move
 
     def start(self):
         while self.run:
             self.round_process()
 
-    def restart(self, black_player_type=None, white_player_type=None, size=None):
-        if not black_player_type:
-            black_player_type = self.black_player.player_type
-        if not white_player_type:
-            white_player_type = self.white_player.player_type
-        if not size:
-            size = self.board.size
+    def reset(self, black_player_type=None, white_player_type=None):
+        self.run = True
+        self.history = list()
 
-        self.__init__(black_player_type, white_player_type, size)
-        self.start()
+        self.board.reset()
+        if black_player_type and black_player_type != self.black_player.player_type:
+            self.black_player = player_generate(black_player_type, utils.BLACK, self)
+        else:
+            self.black_player.reset()
+
+        if white_player_type and white_player_type != self.white_player.player_type:
+            self.white_player = player_generate(white_player_type, utils.BLACK, self)
+        else:
+            self.white_player.reset()
+
+        utils.CLEAR()
+        self.logger.info('Reset game')
 
     def game_over(self):
         self.logger.info('Game over')
@@ -126,10 +135,16 @@ class Game(object):
 
         self.logger.info('Save record to {}'.format(record_path))
 
+        if utils.USE_PAI:
+            record_filename = record_path.split('/')[-1]
+            pai_record_path = os.path.join(utils.PAI_RECORD_PATH, record_filename)
+            utils.pai_copy(record_path, pai_record_path)
 
 def main():
     game = Game(utils.MCTS, utils.MCTS)
-    game.start()
+    for _ in range(utils.TRAIN_EPOCH_GAME_NUM):
+        game.start()
+        game.reset()
 
 if __name__ == '__main__':
     main()

@@ -1,307 +1,278 @@
 import os
-import utils
 import numpy as np
-import time
-
+import tensorflow as tf
+import tflearn as tl
+import utils
+from utils.logger import Logger
 from functools import wraps
-from caffe2.python import core, workspace, model_helper, brew, utils as caffe2_utils
-from caffe2.proto import caffe2_pb2
 
-def write_db(db_type, db_name, feature, expect, reward):
-    db_path = os.path.join(utils.DB_PATH, db_name)
-    db = core.C.create_db(db_type, db_path, core.C.Mode.write)
-    trans = db.new_transaction()
-    label = np.argmax(expect, axis=1)
 
-    key = str(time.time()).replace('.', '')[2:]
-    for i in range(feature.shape[0]):
-        proto = caffe2_pb2.TensorProtos()
-        proto.protos.extend([
-            caffe2_utils.NumpyArrayToCaffe2Tensor(feature[i]),
-            caffe2_utils.NumpyArrayToCaffe2Tensor(expect[i]),
-            caffe2_utils.NumpyArrayToCaffe2Tensor(reward[i]),
-            caffe2_utils.NumpyArrayToCaffe2Tensor(label[i])
-        ])
-        trans.put(
-            '{}{}'.format(key, i),
-            proto.SerializeToString()
-        )
+def no_same_net(net):
+    net_dict = {}
+    @wraps(net)
+    def _no_same_net(model_num=-1):
+        if model_num not in net_dict:
+            new_net = net(model_num)
+            new_net.net_dict = net_dict
 
-    trans.commit()
-    db.close()
-    del db
-    del trans
-
-def check_workspace(func):
-    @wraps(func)
-    def after_check_func(self, *args, **kw):
-        if workspace.CurrentWorkspace() != self.WORKSPACE:
-            workspace.SwitchWorkspace(self.WORKSPACE, True)
-        return func(self, *args, **kw)
-    return after_check_func
-
-class Net(object):
-    WORKSPACE = 'default'
-    ARG = {"order": "NCHW"}
-
-    def __init__(self, name, batch_size, board_size):
-        self.batch_size = batch_size
-        self.model = model_helper.ModelHelper(name=name, arg_scope=self.ARG)
-        self.conv_count = 0
-        self.res_count = 0
-        self.board_size = board_size
-        self.board_full_size = board_size ** 2
-        self.filter_num = 256
-        self.res_block_num = 19
-        self.feature_channels = utils.BOARD_HISTORY_LENGTH * 2 + 1
-        self.base_lr = -0.1
-        self.lr_policy = 'step'
-        self.stepsize = 2000000
-        self.gamma = 0.1
-
-    @check_workspace
-    def add_db_input(self, db_name, db_type):
-        db_path = os.path.join(utils.DB_PATH, '{}.db'.format(db_name))
-        _feature, _expect, _reward, _label = self.model.TensorProtosDBInput(
-            [db_reader]
-            ['_feature', '_expect', '_reward', '_label'],
-            batch_size=self.batch_size,
-            db=db_path,
-            db_type=db_type
-            )
-
-        feature = self.model.Cast(_feature, 'feature', to=core.DataType.FLOAT)
-        expect = self.model.Cast(_expect, 'expect', to=core.DataType.FLOAT)
-        reward = self.model.Cast(_reward, 'reward', to=core.DataType.FLOAT)
-        label = self.model.Cast(_label, 'label', to=core.DataType.INT32)
-
-        feature = self.model.StopGradient(feature, feature)
-        expect = self.model.StopGradient(expect, expect)
-        reward = self.model.StopGradient(reward, reward)
-        label = self.model.StopGradient(label, label)
-        return feature, expect, reward, label
-
-    @check_workspace
-    def add_conv_block(self, data_in, dim_in, dim_out, kernel=3, with_relu=True):
-        pad = (kernel - 1) / 2
-
-        conv = brew.conv(
-            self.model,
-            data_in,
-            'conv_{}'.format(self.conv_count),
-            dim_in=dim_in,
-            dim_out=dim_out,
-            kernel=kernel,
-            pad=pad,
-            )
-        norm = brew.spatial_bn(
-            self.model,
-            conv,
-            'norm_{}'.format(self.conv_count),
-            dim_in=dim_out
-        )
-        if with_relu:
-            conv_out = brew.relu(
-                self.model,
-                norm,
-                'relu_{}'.format(self.conv_count),
-            )
+            if model_num is -1:
+                net_dict[-1] = new_net
+            net_dict[new_net.model_num] = new_net
+            return new_net
         else:
-            conv_out = norm
+            return net_dict[model_num]
+    return _no_same_net
 
-        self.conv_count += 1
-        return conv_out
+@no_same_net
+class Net(object):
+    def __init__(self, model_num=-1):
+        self.logger = Logger('game')
+        self.model_num = model_num
+        self.rot, self.rot_inverse = self.generate_matrix_trans()
+        self.net_dict = None
 
-    @check_workspace
-    def add_res_block(self, data_in):
-        conv_out_1 = self.add_conv_block(data_in, self.filter_num, self.filter_num)
-        conv_out_2 = self.add_conv_block(conv_out_1, self.filter_num, self.filter_num, with_relu=False)
-        res_highway = self.model.Add(
-            [conv_out_2, data_in],
-            'res_highway_{}'.format(self.res_count)
+        self.graph = tf.Graph()
+        self.sess = tf.Session(graph=self.graph)
+        with self.graph.as_default():
+            self.feature = tf.placeholder(tf.float32, [None, utils.SIZE, utils.SIZE, utils.FEATURE_CHANNEL])
+            self.expect = tf.placeholder(tf.float32, [None, utils.SIZE ** 2])
+            self.reward = tf.placeholder(tf.float32, [None, 1])
+            self.predict = None
+            self.value = None
+            self.net = None
+            self.loss = None
+            self.accuracy = None
+            self.build()
+
+            self.saver = tf.train.Saver()
+            self.load_model()
+
+    def generate_matrix_trans(self):
+        rotat_0 = lambda m, axes=(0, 1): m
+        rotat_90 = lambda m, axes=(0, 1): np.rot90(m, 1, axes=axes)
+        rotat_180 = lambda m, axes=(0, 1): np.rot90(m, 2, axes=axes)
+        rotat_270 = lambda m, axes=(0, 1): np.rot90(m, 3, axes=axes)
+        reflect_0 = lambda m, axes=(0, 1): np.flip(m, axis=axes[1])
+        reflect_90 = lambda m, axes=(0, 1): np.flip(rotat_90(m, axes=axes), axis=axes[1])
+        reflect_180 = lambda m, axes=(0, 1): np.flip(rotat_180(m, axes=axes), axis=axes[1])
+        reflect_270 = lambda m, axes=(0, 1): np.flip(rotat_270(m, axes=axes), axis=axes[1])
+
+        rot = {
+            0: rotat_0,
+            1: rotat_90,
+            2: rotat_180,
+            3: rotat_270,
+            4: reflect_0,
+            5: reflect_90,
+            6: reflect_180,
+            7: reflect_270
+        }
+        rot_inverse = {
+            0: rotat_0,
+            1: rotat_270,
+            2: rotat_180,
+            3: rotat_90,
+            4: reflect_0,
+            5: reflect_90,
+            6: reflect_180,
+            7: reflect_270
+        }
+        return rot, rot_inverse
+
+    def add_ph(self, net):
+        ph = tl.layers.conv.conv_2d(
+            net,
+            utils.POLICY_HEAD_CONV_DIM_OUT,
+            utils.POLICY_HEAD_KERNEL_SIZE,
+            regularizer='L2',
+            weight_decay=0.0001
             )
-        res_out = brew.relu(
-            self.model,
-            res_highway,
-            'res_relu_{}'.format(self.res_count),
+        ph = tl.layers.normalization.batch_normalization(ph)
+        ph = tl.activations.relu(ph)
+        ph = tl.layers.core.flatten(ph)
+        ph = tl.layers.core.fully_connected(
+            ph,
+            utils.POLICY_HEAD_FC_DIM_OUT,
+            activation='softmax',
+            regularizer='L2',
+            weight_decay=0.0001
         )
-        self.res_count += 1
-        return res_out
+        return ph
 
-    @check_workspace
-    def add_policy_head(self, data_in):
-        ph_conv_out = self.add_conv_block(data_in, self.filter_num, 2, 1)
-        ph_fc = brew.fc(
-            self.model,
-            ph_conv_out,
-            'ph_fc',
-            dim_in=2 * self.board_full_size,
-            # dim_out=self.board_full_size + 1
-            dim_out=self.board_full_size
+    def add_vh(self, net):
+        vh = tl.layers.conv.conv_2d(
+            net,
+            utils.VALUE_HEAD_CONV_DIM_OUT,
+            utils.VALUE_HEAD_KERNEL_SIZE,
+            regularizer='L2',
+            weight_decay=0.0001
             )
-        predict = brew.softmax(
-            self.model,
-            ph_fc,
-            'predict'
-        )
-        return predict
-
-    @check_workspace
-    def add_value_head(self, data_in):
-        vh_conv_out = self.add_conv_block(data_in, self.filter_num, 1, 1)
-        vh_fc = brew.fc(
-            self.model,
-            vh_conv_out,
-            'vh_fc',
-            dim_in=self.board_full_size,
-            dim_out=self.filter_num
-        )
-        vh_relu = brew.relu(
-            self.model,
-            vh_fc,
-            'vh_relu'
-        )
-        vh_fc_2 = brew.fc(
-            self.model,
-            vh_relu,
-            'vh_fc_2',
-            dim_in=self.filter_num,
-            dim_out=1
-        )
-        value = brew.tanh(
-            self.model,
-            vh_fc_2,
-            'value',
-        )
-        return value
-
-    @check_workspace
-    def add_accuracy(self, predict, label):
-        accuracy = brew.accuracy(self.model, [predict, label], 'accuracy')
-        return accuracy
-
-    @check_workspace
-    def add_train_op(self, predict, expect, value, reward):
-        _, xent = self.model.SoftmaxWithLoss([predict, expect], ['_', 'xent'], label_prob=1)
-        l2_dis = self.model.SquaredL2Distance([value, reward], 'l2_dis')
-        msqrl2 = self.model.AveragedLoss(l2_dis, 'msqrl2')
-        loss = self.model.Add([msqrl2, xent], 'loss')
-        self.model.AddGradientOperators([loss])
-
-        ITER = brew.iter(self.model, "iter")
-        LR = self.model.LearningRate(
-            ITER,
-            "LR",
-            base_lr=self.base_lr,
-            policy=self.lr_policy,
-            stepsize=self.stepsize,
-            gamma=self.gamma
+        vh = tl.layers.normalization.batch_normalization(vh)
+        vh = tl.activations.relu(vh)
+        vh = tl.layers.core.flatten(vh)
+        vh = tl.layers.core.fully_connected(
+            vh,
+            utils.VALUE_HEAD_FC_DIM_MID,
+            activation='relu',
+            regularizer='L2',
+            weight_decay=0.0001
             )
-        ONE = self.model.param_init_net.ConstantFill([], "ONE", shape=[1], value=1.0)
-        # Now, for each parameter, we do the gradient updates.
-        for param in self.model.params:
-            # Note how we get the gradient of each parameter - ModelHelper keeps
-            # track of that.
-            param_grad = model.param_to_grad[param]
-            # The update is a simple weighted sum: param = param + param_grad * LR
-            model.WeightedSum([param, ONE, param_grad, LR], param)
+        vh = tl.layers.core.fully_connected(
+            vh,
+            utils.VALUE_HEAD_FC_DIM_OUT,
+            activation='tanh',
+            regularizer='L2',
+            weight_decay=0.0001
+            )
+        return vh
 
-    @check_workspace
-    def add_booking_op(self):
-        self.model.Print('accuracy', [], to_file=1)
-        self.model.Print('loss', [], to_file=1)
+    def add_accuracy(self, predict, expect):
+        return tl.metrics.accuracy_op(predict, expect)
 
-        # for param in self.model.params:
-        #     self.model.Summarize(param, [], to_file=1)
-        #     self.model.Summarize(self.model.param_to_grad[param], [], to_file=1)
+    def add_loss(self, predict, expect, value, reward):
+        xent = tl.objectives.categorical_crossentropy(predict, expect)
+        square = tf.sqrt(tf.reduce_sum(tf.square(value - reward)))
+        l2 = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+        return xent + square + l2
 
-    @check_workspace
-    def create_net(self):
-        workspace.RunNetOnce(self.model.param_init_net)
-        workspace.CreateNet(self.model.net)
+    def add_net(self):
+        net = tl.layers.core.input_data(placeholder=self.feature)
+        net = tl.layers.conv.conv_2d(
+            net,
+            utils.FILTER_NUM,
+            utils.CONV_KERNEL_SIZE,
+            regularizer='L2',
+            weight_decay=0.0001
+            )
+        net = tl.layers.normalization.batch_normalization(net)
+        net = tl.activations.relu(net)
 
-    @check_workspace
-    def run(self):
-        workspace.RunNet(self.model.net)
-
-
-class TrainNet(Net):
-    WORKSPACE = 'train'
-
-    @check_workspace
-    def build(self, db_name, db_type):
-        feature, expect, reward, label = self.add_db_input(db_name, db_type)
-        res_in = self.add_conv_block(feature, self.feature_channels, self.filter_num)
-        for _ in range(self.res_block_num):
-            res_out = self.add_res_block(res_in)
-            res_in = res_out
-        predict = self.add_policy_head(res_out)
-        value = self.add_value_head(res_out)
-        self.add_accuracy()
-        self.add_train_op(predict, expect, value, reward)
-        self.add_booking_op()
-
-        self.create_net()
-
-
-class TestNet(Net):
-    WORKSPACE = 'test'
-
-    @check_workspace
-    def build(self, db_name, db_type):
-        feature, expect, reward = self.add_db_input(db_name, db_type)
-        res_in = self.add_conv_block(feature, self.feature_channels, self.filter_num)
-        for _ in range(self.res_block_num):
-            res_out = self.add_res_block(res_in)
-            res_in = res_out
-        predict = self.add_policy_head(res_out)
-        value = self.add_value_head(res_out)
-        accuracy = self.add_accuracy(predict, label)
-
-        self.create_net()
-
-
-class DeployNet(Net):
-    WORKSPACE = 'deploy'
-
-    def __init__(self, name, board_size):
-        super(DeployNet, self).__init__(name, 1, board_size)
-
-    @check_workspace
-    def build(self):
-        if not workspace.HasBlob('feature'):
-            workspace.CreateBlob('feature')
-        feature = self.model.StopGradient('feature', 'feature')
-        res_in = self.add_conv_block(feature, utils.FEATURE_CHANNEL, utils.FILTER_NUM)
         for _ in range(utils.RES_BLOCK_NUM):
-            res_out = self.add_res_block(res_in)
-            res_in = res_out
-        self.add_policy_head(res_out)
-        self.add_value_head(res_out)
+            net = tl.layers.conv.residual_block(net, 1, utils.FILTER_NUM)
+            net = tl.activations.relu(net)
 
-        self.create_net()
+        return net
 
-    @check_workspace
-    def get_predict_and_value(self, feature):
-        if feature.dtype != np.float32:
-            feature = feature.astype(np.float32)
-        # feature = feature.reshape([1].extend(feature.shape)).astype(np.float32)
-        workspace.FeedBlob('feature', feature)
-        self.run()
-        predict, value = workspace.FetchBlobs(['predict', 'value'])
-        return predict[0], value[0, 0]
+    def build(self):
+        self.net = self.add_net()
+
+        self.predict = self.add_ph(self.net)
+        self.value = self.add_vh(self.net)
+        self.accuracy = self.add_accuracy(self.predict, self.expect)
+        self.loss = self.add_loss(self.predict, self.expect, self.value, self.reward)
+
+        self.logger.info('Build net successfully')
+
+    def get_predict_and_value(self, feature, rot=False):
+        if not rot:
+            predict, value = self.sess.run(
+                [self.predict, self.value],
+                feed_dict={self.feature: feature.astype(np.float32)}
+                )
+            predict = predict[0]
+            value = value[0, 0]
+            return predict, value
+        else:
+            rot_num = np.random.randint(0, 8)
+            feature = self.rot[rot_num](feature, (1, 2))
+            predict, value = self.sess.run(
+                [self.predict, self.value],
+                feed_dict={self.feature: feature.astype(np.float32)}
+                )
+            predict = self.rot_inverse[rot_num](
+                np.reshape(predict, (utils.SIZE, utils.SIZE))
+            ).reshape(utils.FULL_SIZE)
+            value = value[0, 0]
+            return predict, value
+
+    def model_path(self, suffix, pai=False):
+        if utils.USE_PAI:
+            if pai:
+                return os.path.join(utils.PAI_MODEL_PATH, suffix)
+            else:
+                return os.path.join(utils.MODEL_PATH, suffix)
+        else:
+            return os.path.join(utils.MODEL_PATH, suffix)
+
+    def exsit_model(self):
+        if self.model_num is -1:
+            return tf.gfile.Exists(self.model_path('model-best.index'))
+        else:
+            return tf.gfile.Exists(self.model_path('model-{}.index'.format(self.model_num)))
+
+    def load_model(self):
+        assert isinstance(self.model_num, int), 'model num must be int'
+
+        if self.model_num is -1:
+            self.logger.info('Try to load best model')
+            if tf.gfile.Exists(self.model_path('best')):
+                try:
+                    with tf.gfile.FastGFile(self.model_path('best')) as file:
+                        self.model_num = int(file.read())
+                        self.logger.info('Best model is {}'.format(self.model_num))
+                        assert self.exsit_model(), 'Best model {} does not exist'.format(self.model_num)
+                except Exception as e:
+                    self.logger.error(e)
+                    self.model_num = 0
+
+            else:
+                self.logger.info('Best record does not exsit')
+                self.model_num = 0
+
+            self.load_model()
+
+        else:
+            if self.exsit_model():
+                self.saver.restore(self.sess, self.model_path('model-{}'.format(self.model_num)))
+                self.logger.info('Load model {}'.format(self.model_num))
+            elif self.model_num is 0:
+                self.sess.run(tf.global_variables_initializer())
+                self.logger.info('Build init model 0')
+                self.save_model(True)
+            else:
+                self.logger.info('Model {} no exist, try to load best model'.format(self.model_num))
+                self.model_num = -1
+                self.load_model()
+
+    def save_model(self, write_best_record=False):
+        self.saver.save(self.sess, self.model_path('model'), self.model_num)
+        self.logger.info('Save model {}'.format(self.model_num))
+
+        if write_best_record:
+            with tf.gfile.FastGFile(self.model_path('best'), 'w') as file:
+                file.write(str(self.model_num))
+            self.logger.info('Best model is {}'.format(self.model_num))
+
+        if utils.USE_PAI:
+            pattern = 'model-{}*'.format(self.model_num)
+            utils.pai_dir_copy(utils.MODEL_PATH, utils.PAI_MODEL_PATH, pattern)
+            utils.pai_copy(self.model_path('checkpoint'), self.model_path('checkpoint', True))
+            if write_best_record:
+                with tf.gfile.FastGFile(self.model_path('best', True), 'w') as file:
+                    file.write(str(self.model_num))
+
+    def change_model_num(self, new_model_num):
+        assert isinstance(new_model_num, int), 'Model num must be int'
+        del self.net_dict[self.model_num]
+        self.net_dict[new_model_num] = self
+        self.model_num = new_model_num
+        self.logger.info('Change model num from {} to {}'.format(self.model_num, new_model_num))
+        self.save_model()
+
 
 def main():
     import time
     times = 20
-    net = DeployNet("deploy", utils.SIZE)
+    net = Net()
+    # net.sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
     net.build()
-    f = np.random.sample((1, utils.FEATURE_CHANNEL, utils.SIZE, utils.SIZE))
+    f = np.random.sample((1, utils.SIZE, utils.SIZE, utils.FEATURE_CHANNEL))
     st = time.time()
     for _ in range(times):
         net.get_predict_and_value(f)
     et = time.time()
     print("{}".format((et - st) / times))
+
 
 if __name__ == '__main__':
     main()

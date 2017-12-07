@@ -14,12 +14,12 @@ class Board(object):
         self.now_color = utils.BLACK
         self.round_num = 0
         self.size = size
-        self.full_size = self.size ** 2
-        self.board = np.zeros(self.full_size, np.int)
+        self.full_size = size ** 2
+        self.board = np.zeros(self.full_size, np.int8)
         self.board_history_length = utils.BOARD_HISTORY_LENGTH
         self.feature_channels = self.board_history_length * 2 + 1
-        self.black_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
-        self.white_board_history = [np.zeros(self.full_size, dtype=np.int)] * self.board_history_length
+        self.black_board_history = [np.zeros(self.full_size, dtype=np.int8)] * self.board_history_length
+        self.white_board_history = [np.zeros(self.full_size, dtype=np.int8)] * self.board_history_length
 
     def __del__(self):
         del self.board
@@ -73,12 +73,7 @@ class Board(object):
         return False
 
     def judge_round_up(self):
-        if self.round_num is self.full_size - 1:
-            return True
-        else:
-            self.round_num += 1
-            self.now_color *= -1
-            return False
+        return np.all(self.board)
 
     def move(self, move_or_index):
         if isinstance(move_or_index, utils.Move):
@@ -88,7 +83,7 @@ class Board(object):
         else:
             raise AttributeError('neither move or index')
 
-        assert 0 <= index <self.full_size, 'index out of range'
+        assert 0 <= index < self.full_size, 'index out of range'
         assert self.board[index] == utils.EMPTY, 'target is not empty'
         self.board[index] = self.now_color
 
@@ -100,37 +95,34 @@ class Board(object):
     def undo(self):
         if self.now_color is utils.BLACK:
             if len(self.black_board_history) > self.board_history_length:
-                self.board = self.black_board_history.pop() * utils.BLACK + self.white_board_history[-1] * utils.WHITE
+                self.board = self.black_board_history.pop() * utils.BLACK\
+                + self.white_board_history[-1] * utils.WHITE
         else:
             if len(self.white_board_history) > self.board_history_length:
-                self.board = self.black_board_history[-1] * utils.BLACK + self.white_board_history.pop() * utils.WHITE
+                self.board = self.black_board_history[-1] * utils.BLACK\
+                + self.white_board_history.pop() * utils.WHITE
 
-        self.now_color *= -1
+        self.round_change(-1)
 
 
     def get_feature(self, color, round_num=None):
         if round_num is None:
-            if color is utils.BLACK:
-                return np.array(self.black_board_history[-self.board_history_length:]\
-                    + self.white_board_history[-self.board_history_length:]\
-                    + [np.ones(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
-            elif color is utils.WHITE:
-                return np.array(self.white_board_history[-self.board_history_length:]\
-                    + self.black_board_history[-self.board_history_length:]\
-                    + [np.zeros(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
-            else:
-                raise AttributeError('given color is not black or white')
+            round_num = self.round_num // 2
+
+        if color is utils.BLACK:
+            return np.array(self.black_board_history[round_num:round_num + self.board_history_length]\
+                + self.white_board_history[round_num:round_num + self.board_history_length]\
+                + [np.ones(self.full_size)], dtype=np.int8).reshape(
+                    (1, self.feature_channels, self.size, self.size)
+                ).transpose((0, 2, 3, 1))
+        elif color is utils.WHITE:
+            return np.array(self.white_board_history[round_num:round_num + self.board_history_length]\
+                + self.black_board_history[round_num + 1:round_num + 1 + self.board_history_length]\
+                + [np.zeros(self.full_size)], dtype=np.int8).reshape(
+                    (1, self.feature_channels, self.size, self.size)
+                ).transpose((0, 2, 3, 1))
         else:
-            if color is utils.BLACK:
-                return np.array(self.black_board_history[round_num:round_num + self.board_history_length]\
-                    + self.white_board_history[round_num:round_num + self.board_history_length]\
-                    + [np.ones(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
-            elif color is utils.WHITE:
-                return np.array(self.white_board_history[round_num:round_num + self.board_history_length]\
-                    + self.black_board_history[round_num:round_num + self.board_history_length]\
-                    + [np.zeros(self.full_size)], dtype=np.float32).reshape((1, self.feature_channels, self.size, self.size))
-            else:
-                raise AttributeError('given color is not black or white')
+            raise AttributeError('given color is not black or white')
 
     def get_color_board(self, color, board=None):
         if board is None:
@@ -141,7 +133,7 @@ class Board(object):
         if color not in [utils.BLACK, utils.WHITE]:
             raise AttributeError('given color is not black or white')
 
-        color_board = np.zeros(self.full_size, np.int)
+        color_board = np.zeros(self.full_size, np.int8)
         color_board[board == color] = 1
         return color_board
 
@@ -151,6 +143,10 @@ class Board(object):
             return show_board.reshape(self.size, self.size)
         else:
             return self.board.reshape(self.size, self.size)
+
+    def round_change(self, num):
+        self.round_num += num
+        self.now_color = (-1) ** self.round_num
 
     @property
     def show_board(self):
@@ -168,26 +164,13 @@ class Board(object):
     def empty_pos(self):
         return np.where(self.board == utils.EMPTY)[0]
 
-    # def generate_matrix_trans(self):
-    #     rotat_0 = lambda m: m
-    #     rotat_90 = np.rot90
-    #     rotat_180 = lambda m: np.rot90(m, 2)
-    #     rotat_270 = lambda m: np.rot90(m, 3)
-    #     reflect_0 = np.fliplr
-    #     reflect_90 = lambda m: np.fliplr(rotat_90(m))
-    #     reflect_180 = lambda m: np.fliplr(rotat_180(m))
-    #     reflect_270 = lambda m: np.fliplr(rotat_270(m))
-
-    #     return {
-    #         0: rotat_0,
-    #         1: rotat_90,
-    #         2: rotat_180,
-    #         3: rotat_270,
-    #         4: reflect_0,
-    #         5: reflect_90,
-    #         6: reflect_180,
-    #         7: reflect_270
-    #     }
+    def reset(self):
+        self.winner = utils.EMPTY
+        self.now_color = utils.BLACK
+        self.round_num = 0
+        self.board = np.zeros(self.full_size, np.int8)
+        self.black_board_history = [np.zeros(self.full_size, dtype=np.int8)] * self.board_history_length
+        self.white_board_history = [np.zeros(self.full_size, dtype=np.int8)] * self.board_history_length
 
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 # -*- coding:utf-8 -*-
 import sys
 import os
+import gc
+import tensorflow as tf
 from collections import namedtuple
 
 # path
@@ -12,8 +14,9 @@ else:
 LOG_PATH = os.path.join(ROOT_PATH, 'log')
 RECORD_PATH = os.path.join(ROOT_PATH, 'record')
 DB_PATH = os.path.join(ROOT_PATH, 'db')
+MODEL_PATH = os.path.join(ROOT_PATH, 'model')
 
-for path in [LOG_PATH, RECORD_PATH, DB_PATH]:
+for path in [LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH]:
     if not os.path.exists(path):
         os.mkdir(path)
 
@@ -34,11 +37,18 @@ HUMAN, GOMOCUP, MCTS, RANDOM = 0, 1, 2, 3
 
 # game default para
 SIZE = 20
+FULL_SIZE = SIZE ** 2
 WIN_NUM = 5
 
 # socket
 HOST = 'localhost'
 PORT = 10329
+
+# MCTS
+MAX_MCTS_EVALUATE_TIME = 100
+TAU_CHANGE_ROUND = 0
+TAU_UP = 1.0
+TAU_LOW = 0.01
 
 # network
 BOARD_HISTORY_LENGTH = 5
@@ -53,3 +63,27 @@ VALUE_HEAD_CONV_DIM_OUT = 1
 VALUE_HEAD_KERNEL_SIZE = 1
 VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
+
+TRAIN_EPOCH_GAME_NUM = 100
+
+# pai
+USE_PAI = False
+PAI_ROOT_PATH = None
+PAI_DB_PATH = None
+PAI_MODEL_PATH = None
+PAI_RECORD_PATH = None
+
+def pai_copy(from_path, to_path, overwrite=True):
+    tf.gfile.Copy(from_path, to_path, overwrite=overwrite)
+
+def pai_dir_copy(from_path, to_path, pattern='*', overwrite=True):
+    for file in pai_find_path(os.path.join(from_path, pattern)):
+        file_name = file.split('/')[-1]
+        file_path = os.path.join(to_path, file_name)
+        pai_copy(file, file_path, overwrite)
+
+def pai_find_path(pattern):
+    return tf.gfile.Glob(pattern)
+
+# gc
+CLEAR = gc.collect

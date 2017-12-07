@@ -2,10 +2,12 @@
 */__pycache__/*
 __pycache__/*
 record/*
+model/*
 dist/*
 log/*
 src/*
 db/*
+tar/*
 test*
 *.exe
 *.pyc
