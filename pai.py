@@ -15,11 +15,7 @@ def pai_constant_init():
     utils.PAI_DB_PATH = os.path.join(utils.PAI_ROOT_PATH, 'db')
     utils.PAI_MODEL_PATH = os.path.join(utils.PAI_ROOT_PATH, 'model')
     utils.PAI_RECORD_PATH = os.path.join(utils.PAI_ROOT_PATH, 'record')
-
-    for path in [utils.PAI_DB_PATH, utils.PAI_MODEL_PATH, utils.PAI_RECORD_PATH]:
-        if not tf.gfile.Exists(path):
-            tf.gfile.MkDir(path)
-
+    utils.path_init([utils.PAI_DB_PATH, utils.PAI_MODEL_PATH, utils.PAI_RECORD_PATH], True)
     utils.pai_dir_copy(utils.PAI_MODEL_PATH, utils.MODEL_PATH)
 
 def main(_):

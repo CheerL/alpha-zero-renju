@@ -5,6 +5,9 @@ import gc
 import tensorflow as tf
 from collections import namedtuple
 
+# move structure
+Move = namedtuple('Move', ['x', 'y'])
+
 # path
 if getattr(sys, 'frozen', False):
     ROOT_PATH = os.path.dirname(os.path.dirname(sys.executable))
@@ -16,12 +19,18 @@ RECORD_PATH = os.path.join(ROOT_PATH, 'record')
 DB_PATH = os.path.join(ROOT_PATH, 'db')
 MODEL_PATH = os.path.join(ROOT_PATH, 'model')
 
-for path in [LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH]:
-    if not os.path.exists(path):
-        os.mkdir(path)
+# pai and pai path
+USE_PAI = False
+PAI_ROOT_PATH = None
+PAI_DB_PATH = None
+PAI_MODEL_PATH = None
+PAI_RECORD_PATH = None
 
-# move structure
-Move = namedtuple('Move', ['x', 'y'])
+# oss_path
+OSS_ROOT_PATH = 'alpha/model/'
+OSS_MODEL_PATH = OSS_ROOT_PATH + 'model/'
+OSS_DB_PATH  = OSS_ROOT_PATH + 'db/'
+OSS_RECORD_PATH = OSS_ROOT_PATH + 'record/'
 
 # color
 BLACK = 1
@@ -64,14 +73,19 @@ VALUE_HEAD_KERNEL_SIZE = 1
 VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
-TRAIN_EPOCH_GAME_NUM = 100
+TRAIN_EPOCH_GAME_NUM = 500
 
-# pai
-USE_PAI = False
-PAI_ROOT_PATH = None
-PAI_DB_PATH = None
-PAI_MODEL_PATH = None
-PAI_RECORD_PATH = None
+# function
+CLEAR = gc.collect
+
+def path_init(paths, pai_path=False):
+    for path in paths:
+        if pai_path:
+            if not tf.gfile.Exists(path):
+                tf.gfile.MakeDirs(path)
+        else:
+            if not os.path.exists(path):
+                os.makedirs(path)
 
 def pai_copy(from_path, to_path, overwrite=True):
     tf.gfile.Copy(from_path, to_path, overwrite=overwrite)
@@ -85,5 +99,5 @@ def pai_dir_copy(from_path, to_path, pattern='*', overwrite=True):
 def pai_find_path(pattern):
     return tf.gfile.Glob(pattern)
 
-# gc
-CLEAR = gc.collect
+# init
+path_init([LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH])
