@@ -18,6 +18,7 @@ LOG_PATH = os.path.join(ROOT_PATH, 'log')
 RECORD_PATH = os.path.join(ROOT_PATH, 'record')
 DB_PATH = os.path.join(ROOT_PATH, 'db')
 MODEL_PATH = os.path.join(ROOT_PATH, 'model')
+SUMMARY_PATH = os.path.join(ROOT_PATH, 'summary')
 
 # pai and pai path
 USE_PAI = False
@@ -25,11 +26,12 @@ PAI_ROOT_PATH = None
 PAI_DB_PATH = None
 PAI_MODEL_PATH = None
 PAI_RECORD_PATH = None
+PAI_SUMMARY_PATH = None
 
 # oss_path
 OSS_ROOT_PATH = 'alpha/model/'
 OSS_MODEL_PATH = OSS_ROOT_PATH + 'model/'
-OSS_DB_PATH  = OSS_ROOT_PATH + 'db/'
+OSS_DB_PATH = OSS_ROOT_PATH + 'db/'
 OSS_RECORD_PATH = OSS_ROOT_PATH + 'record/'
 
 # color
@@ -73,7 +75,16 @@ VALUE_HEAD_KERNEL_SIZE = 1
 VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
+# train
 TRAIN_EPOCH_GAME_NUM = 500
+TRAIN_EPOCH_REPEAT_NUM = 10
+SUMMARY_INTERVAL = 10
+BATCH_SIZE = 100
+L2_DECAY = 0.0001
+MOMENTUM = 0.9
+BASE_LEARNING_RATE = 0.01
+LEARNING_RATE_DECAY = 0.98
+LEARNING_RATE_DECAY_STEP = 1000
 
 # function
 CLEAR = gc.collect
@@ -100,4 +111,4 @@ def pai_find_path(pattern):
     return tf.gfile.Glob(pattern)
 
 # init
-path_init([LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH])
+path_init([LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH, SUMMARY_PATH])

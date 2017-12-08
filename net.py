@@ -4,6 +4,7 @@ import tensorflow as tf
 import tflearn as tl
 import utils
 from utils.logger import Logger
+from utils.tfrecord import generate_dataset
 from functools import wraps
 
 
@@ -42,6 +43,9 @@ class Net(object):
             self.net = None
             self.loss = None
             self.accuracy = None
+            self.trainer = None
+            self.summary = None
+            self.summary_writer = None
             self.build()
 
             self.saver = tf.train.Saver()
@@ -131,9 +135,21 @@ class Net(object):
 
     def add_loss(self, predict, expect, value, reward):
         xent = tl.objectives.categorical_crossentropy(predict, expect)
-        square = tf.sqrt(tf.reduce_sum(tf.square(value - reward)))
+        square = tf.reduce_sum(tf.square(value - reward))
         l2 = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+        # l2 = tf.reduce_sum(tf.square(
+        # tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES) / utils.L2_DECAY)) * utils.L2_DECAY
         return xent + square + l2
+
+    def add_trainer(self, loss):
+        momentum_optimizer = tl.optimizers.Momentum(
+            learning_rate=utils.BASE_LEARNING_RATE,
+            momentum=utils.MOMENTUM,
+            lr_decay=utils.LEARNING_RATE_DECAY,
+            decay_step=utils.LEARNING_RATE_DECAY_STEP
+        )
+        momentum_optimizer.build(True)
+        return momentum_optimizer.get_tensor().minimize(loss)
 
     def add_net(self):
         net = tl.layers.core.input_data(placeholder=self.feature)
@@ -142,7 +158,7 @@ class Net(object):
             utils.FILTER_NUM,
             utils.CONV_KERNEL_SIZE,
             regularizer='L2',
-            weight_decay=0.0001
+            weight_decay=utils.L2_DECAY
             )
         net = tl.layers.normalization.batch_normalization(net)
         net = tl.activations.relu(net)
@@ -153,6 +169,11 @@ class Net(object):
 
         return net
 
+    def add_summary(self, loss, accuracy):
+        tf.summary.scalar('loss', self.loss)
+        tf.summary.scalar('accuracy', self.accuracy)
+        return tf.summary.FileWriter(utils.SUMMARY_PATH, self.graph), tf.summary.merge_all()
+
     def build(self):
         self.net = self.add_net()
 
@@ -160,6 +181,8 @@ class Net(object):
         self.value = self.add_vh(self.net)
         self.accuracy = self.add_accuracy(self.predict, self.expect)
         self.loss = self.add_loss(self.predict, self.expect, self.value, self.reward)
+        self.trainer = self.add_trainer(self.loss)
+        self.summary_writer, self.summary = self.add_summary(self.loss, self.accuracy)
 
         self.logger.info('Build net successfully')
 
@@ -184,6 +207,41 @@ class Net(object):
             ).reshape(utils.FULL_SIZE)
             value = value[0, 0]
             return predict, value
+
+    def train(self, files, batch_size=utils.BATCH_SIZE):
+        with self.graph.as_default():
+            iterator, next_batch = generate_dataset(files, batch_size)
+            train_time = 0
+            for epoch in range(utils.TRAIN_EPOCH_REPEAT_NUM):
+                self.sess.run(iterator.initializer)
+                self.logger.info('Start train epoch {}/{}'.format(
+                    epoch + 1, utils.TRAIN_EPOCH_REPEAT_NUM))
+                while True:
+                    try:
+                        for _ in range(utils.SUMMARY_INTERVAL):
+                            feature, expect, reward = self.sess.run(next_batch)
+                            self.sess.run(
+                                self.trainer,
+                                feed_dict={
+                                    self.feature: feature,
+                                    self.expect: expect,
+                                    self.reward: reward
+                                })
+                            train_time += 1
+                        else:
+                            feature, expect, reward = self.sess.run(next_batch)
+                            summary = self.sess.run(
+                                self.summary,
+                                feed_dict={
+                                    self.feature: feature,
+                                    self.expect: expect,
+                                    self.reward: reward
+                                })
+                            self.summary_writer.add_summary(summary, train_time)
+                            self.logger.info('Save summary')
+                    except tf.errors.OutOfRangeError:
+                        break
+            self.logger.info('Training end')
 
     def model_path(self, suffix, pai=False):
         if utils.USE_PAI:
@@ -261,18 +319,11 @@ class Net(object):
 
 
 def main():
-    import time
-    times = 20
+    db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
+    records = utils.pai_find_path(os.path.join(db_path, '*'))
     net = Net()
-    # net.sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
-    net.build()
-    f = np.random.sample((1, utils.SIZE, utils.SIZE, utils.FEATURE_CHANNEL))
-    st = time.time()
-    for _ in range(times):
-        net.get_predict_and_value(f)
-    et = time.time()
-    print("{}".format((et - st) / times))
-
+    net.train(records)
+    net.change_model_num(net.model_num + 1)
 
 if __name__ == '__main__':
     main()

@@ -1,5 +1,6 @@
-import oss2
 import os
+import oss2
+import utils
 
 class OssManager(object):
     AKID = 'LTAIaXXWIaH9B4E1'
@@ -14,9 +15,18 @@ class OssManager(object):
     def list_dir(self, path, prefix=''):
         return [obj.key for obj in oss2.ObjectIterator(self.bucket, prefix=path + prefix)]
 
+    def download_file(self, file_key, to_path):
+        self.bucket.get_object_to_file(file_key, to_path)
+
     def download_files(self, files=[], to_path='.'):
         for file_key in files:
             if not file_key.endswith('/'):
                 file_name = file_key.split('/')[-1]
                 file_path = os.path.join(to_path, file_name)
-                self.bucket.get_object_to_file(file_key, file_path)
+                self.download_file(file_key, file_path)
+
+    def upload_file(self, from_path, file_key):
+        self.bucket.put_object_from_file(from_path, file_key)
+
+    def upload_files(self, form_path, to_path):
+        pass

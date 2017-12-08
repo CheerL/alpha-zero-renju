@@ -142,9 +142,14 @@ class Game(object):
 
 def main():
     game = Game(utils.MCTS, utils.MCTS)
-    for _ in range(utils.TRAIN_EPOCH_GAME_NUM):
+    if utils.USE_PAI:
+        db_pattern = os.path.join(utils.PAI_DB_PATH, '*')
+        while len(utils.pai_find_path(db_pattern)) < utils.TRAIN_EPOCH_GAME_NUM:
+            game.logger.info('There are {} records now'.format(len(utils.pai_find_path(db_pattern))))
+            game.start()
+            game.reset()
+    else:
         game.start()
-        game.reset()
 
 if __name__ == '__main__':
     main()

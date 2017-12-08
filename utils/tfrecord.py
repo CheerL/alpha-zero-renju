@@ -38,5 +38,5 @@ def parse_func(content):
         (utils.SIZE, utils.SIZE, utils.FEATURE_CHANNEL)
         ), tf.float32)
     expect = tf.squeeze(tf.decode_raw(example['expect'], tf.float32))
-    reward = tf.cast(example['reward'], tf.float32)
+    reward = tf.reshape(tf.cast(example['reward'], tf.float32), [-1])
     return feature, expect, reward

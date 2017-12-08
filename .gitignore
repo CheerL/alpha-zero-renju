@@ -5,9 +5,11 @@ record/*
 model/*
 dist/*
 log/*
+summary/*
 src/*
 db/*
 tar/*
 test*
 *.exe
 *.pyc
+tar.py

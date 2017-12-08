@@ -5,7 +5,7 @@ import sys
 import argparse
 import tensorflow as tf
 import utils
-import game
+import net
 
 FLAGS = None
 
@@ -21,7 +21,7 @@ def pai_constant_init():
 
 def main(_):
     pai_constant_init()
-    game.main()
+    net.main()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
