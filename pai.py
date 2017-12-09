@@ -18,7 +18,7 @@ def pai_constant_init():
     utils.PAI_SUMMARY_PATH = os.path.join(utils.PAI_ROOT_PATH, 'summary')
     path_list = [utils.PAI_DB_PATH, utils.PAI_MODEL_PATH, utils.PAI_RECORD_PATH, utils.PAI_SUMMARY_PATH]
     utils.path_init(path_list, True)
-    # copy_best_model()
+    copy_best_model()
 
 def copy_best_model():
     try:

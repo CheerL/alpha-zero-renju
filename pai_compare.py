@@ -5,7 +5,7 @@ import sys
 import argparse
 import tensorflow as tf
 import utils
-import net
+import game
 
 FLAGS = None
 
@@ -24,16 +24,14 @@ def copy_best_model():
     try:
         with tf.gfile.FastGFile(os.path.join(utils.PAI_MODEL_PATH, 'best')) as file:
             best_model_num = int(file.read())
-        model_pattern = os.path.join(utils.PAI_MODEL_PATH, 'model-{}*'.format(best_model_num))
-        model_path = utils.pai_find_path(model_pattern)
-        assert len(model_path) > 0
         utils.pai_model_copy(best_model_num)
     except:
         pass
 
 def main(_):
     pai_constant_init()
-    net.main()
+    compare_num = 1
+    game.compare(compare_num)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

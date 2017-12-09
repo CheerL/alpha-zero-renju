@@ -325,9 +325,10 @@ class Net(object):
 
 def main():
     db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
-    records = utils.pai_find_path(os.path.join(db_path, '*'))
+    records = utils.pai_find_path(os.path.join(db_path, 'game*'))
     net = Net()
     net.train(records)
+    net.save_model()
 
 if __name__ == '__main__':
     main()
