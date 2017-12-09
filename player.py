@@ -109,17 +109,18 @@ class MCTSPlayer(Player):
         self.save_history_to_tfrecord(-1)
 
     def save_history_to_tfrecord(self, reward):
-        net_model_num = self.mct.net.get_model_num()
-        tfr_name = 'game-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
-        tfr_path = os.path.join(utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH, tfr_name)
-        tfr_writer = generate_writer(tfr_path)
+        if utils.SAVE_RECORD:
+            net_model_num = self.mct.net.get_model_num()
+            tfr_name = 'game-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
+            tfr_path = os.path.join(utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH, tfr_name)
+            tfr_writer = generate_writer(tfr_path)
 
-        for i, expect in enumerate(self.prob_history):
-            feature = self.game.board.get_feature(self.color, i)
-            example = generate_example(feature, expect, reward)
-            tfr_writer.write(example.SerializeToString())
+            for i, expect in enumerate(self.prob_history):
+                feature = self.game.board.get_feature(self.color, i)
+                example = generate_example(feature, expect, reward)
+                tfr_writer.write(example.SerializeToString())
 
-        tfr_writer.close()
+            tfr_writer.close()
 
     def reset(self):
         self.prob_history = list()

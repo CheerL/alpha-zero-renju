@@ -18,7 +18,15 @@ def pai_constant_init():
     utils.PAI_SUMMARY_PATH = os.path.join(utils.PAI_ROOT_PATH, 'summary')
     path_list = [utils.PAI_DB_PATH, utils.PAI_MODEL_PATH, utils.PAI_RECORD_PATH, utils.PAI_SUMMARY_PATH]
     utils.path_init(path_list, True)
-    # utils.pai_dir_copy(utils.PAI_MODEL_PATH, utils.MODEL_PATH)
+    # copy_best_model()
+
+def copy_best_model():
+    try:
+        with tf.gfile.FastGFile(os.path.join(utils.PAI_MODEL_PATH, 'best')) as file:
+            best_model_num = int(file.read())
+        utils.pai_model_copy(best_model_num)
+    except:
+        pass
 
 def main(_):
     pai_constant_init()

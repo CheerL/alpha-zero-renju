@@ -8,17 +8,17 @@ from utils.tfrecord import generate_dataset
 from functools import wraps
 
 
-def no_same_net(net):
-    @wraps(net)
+def no_same_net(NET):
+    @wraps(NET)
     def _no_same_net(model_num=-1):
-        if model_num not in net.net_dict:
-            new_net = net(model_num)
+        if model_num not in NET.net_dict:
+            new_net = NET(model_num)
             if model_num is -1:
-                net.net_dict[-1] = new_net
+                NET.net_dict[-1] = new_net
 
             return new_net
         else:
-            return net.net_dict[model_num]
+            return NET.net_dict[model_num]
     return _no_same_net
 
 @no_same_net
@@ -35,8 +35,8 @@ class Net(object):
             self.feature = tf.placeholder(tf.float32, [None, utils.SIZE, utils.SIZE, utils.FEATURE_CHANNEL], name='feature')
             self.expect = tf.placeholder(tf.float32, [None, utils.SIZE ** 2], name='expect')
             self.reward = tf.placeholder(tf.float32, [None, 1], name='reward')
-            self.train_step = tf.get_variable('train_step', initializer=0, dtype=tf.int32)
-            self.epoch = tf.get_variable('epoch', initializer=0, dtype=tf.int32)
+            self.train_step = tf.get_variable('train_step', initializer=0, dtype=tf.int32, trainable=False)
+            self.epoch = tf.get_variable('epoch', initializer=0, dtype=tf.int32, trainable=False)
             self.predict = None
             self.value = None
             self.net = None
@@ -230,6 +230,15 @@ class Net(object):
                                     self.expect: expect,
                                     self.reward: reward
                                 })
+                            # train_step, summary, _ = self.sess.run(
+                            #     [self.train_step, self.summary, self.trainer],
+                            #     feed_dict={
+                            #         self.feature: feature,
+                            #         self.expect: expect,
+                            #         self.reward: reward
+                            #     })
+                            # self.summary_writer.add_summary(summary, train_step)
+                            # self.logger.info('Save summary {}'.format(train_step))
                         else:
                             feature, expect, reward = self.sess.run(next_batch)
                             train_step, summary = self.sess.run(
@@ -241,12 +250,20 @@ class Net(object):
                                 })
                             self.summary_writer.add_summary(summary, train_step)
                             self.logger.info('Save summary {}'.format(train_step))
+                            # p, v = self.sess.run(
+                            #     [self.predict, self.value],
+                            #     feed_dict={
+                            #         self.feature: feature,
+                            #         self.expect: expect,
+                            #         self.reward: reward
+                            #     })
+                            # print(p[3], expect[3], v[3], reward[3])
                     except tf.errors.OutOfRangeError:
                         break
             self.logger.info('Training end')
 
-    def model_path(self, suffix):
-        if utils.USE_PAI:
+    def model_path(self, suffix, pai=True):
+        if utils.USE_PAI and pai:
             return os.path.join(utils.PAI_MODEL_PATH, suffix)
         else:
             return os.path.join(utils.MODEL_PATH, suffix)
@@ -274,6 +291,7 @@ class Net(object):
             if self.exist_model(model_num):
                 self.saver.restore(self.sess, self.model_path('model-{}'.format(model_num)))
                 self.logger.info('Load model {}'.format(model_num))
+                self.net_dict[model_num] = self
             elif model_num is 0:
                 self.sess.run(tf.global_variables_initializer())
                 self.logger.info('Build init model 0')
@@ -284,7 +302,7 @@ class Net(object):
 
     def save_model(self, write_best_record=False):
         model_num = self.sess.run(self.epoch)
-        self.saver.save(self.sess, self.model_path('model'), self.epoch)
+        self.saver.save(self.sess, self.model_path('model', True), self.epoch)
         self.net_dict[model_num] = self
         self.logger.info('Save model {}'.format(model_num))
 
@@ -292,7 +310,7 @@ class Net(object):
             del self.net_dict[model_num - 1]
 
         if write_best_record:
-            with tf.gfile.FastGFile(self.model_path('best'), 'w') as file:
+            with tf.gfile.FastGFile(self.model_path('best', True), 'w') as file:
                 file.write(str(model_num))
             self.logger.info('Best model is {}'.format(model_num))
             self.net_dict[-1] = self
@@ -302,7 +320,7 @@ class Net(object):
         if model_num > 0:
             return model_num - 1
         else:
-            return os.path.join(utils.MODEL_PATH, suffix)
+            return 0
 
 
 def main():

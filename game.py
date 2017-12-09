@@ -10,6 +10,8 @@ from utils.logger import Logger
 from player import player_generate
 from board import Board
 
+import numpy as np
+
 
 class Game(object):
     logger = Logger('game')
@@ -145,13 +147,50 @@ class Game(object):
 def main():
     game = Game(utils.MCTS, utils.MCTS)
     if utils.USE_PAI:
-        db_pattern = os.path.join(utils.PAI_DB_PATH, '*')
+        model_num = game.black_player.mct.net.get_model_num()
+        db_pattern = os.path.join(utils.PAI_DB_PATH, 'game-{}-*'.format(model_num))
         while len(utils.pai_find_path(db_pattern)) / 2 < utils.TRAIN_EPOCH_GAME_NUM:
             game.logger.info('There are {} records now'.format(len(utils.pai_find_path(db_pattern))/ 2))
             game.start()
             game.reset()
     else:
         game.start()
+
+def compare(compare_model_num):
+    if utils.USE_PAI:
+        utils.pai_model_copy(compare_model_num)
+        game = Game(utils.MCTS, utils.MCTS)
+        best_model_num = game.black_player.mct.net.get_model_num()
+        while True:
+            win, total = utils.pai_read_compare_record(best_model_num, compare_model_num)
+            game.logger.info('Now compare result: {}-{}'.format(win, total))
+            if total > utils.COMPARE_TIME:
+                break
+
+            black_as_best = np.random.choice([True, False])
+            if black_as_best:
+                game.black_player.mct.reset_net(best_model_num)
+                game.white_player.mct.reset_net(compare_model_num)
+            else:
+                game.black_player.mct.reset_net(compare_model_num)
+                game.white_player.mct.reset_net(best_model_num)
+
+            game.start()
+            winner = game.board.winner
+            if winner is utils.EMPTY:
+                pass
+            elif (winner is utils.BLACK and black_as_best) or (winner is utils.WHITE and not black_as_best):
+                utils.pai_write_compare_record(best_model_num, compare_model_num, False)
+            else:
+                utils.pai_write_compare_record(best_model_num, compare_model_num, True)
+            game.reset()
+
+        if win / total > utils.COMPARE_WIN_RATE:
+            utils.pai_change_best(compare_model_num)
+            game.logger.info('Change best model to {}'.format(compare_model_num))
+        else:
+            game.logger.info('Best model does not change')
+
 
 if __name__ == '__main__':
     main()

@@ -51,6 +51,7 @@ SIZE = 20
 FULL_SIZE = SIZE ** 2
 WIN_NUM = 5
 SAVE_PSQ = False
+SAVE_RECORD = True
 
 # socket
 HOST = 'localhost'
@@ -77,15 +78,20 @@ VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
 # train
-TRAIN_EPOCH_GAME_NUM = 500
-TRAIN_EPOCH_REPEAT_NUM = 10
-SUMMARY_INTERVAL = 50
+TRAIN_EPOCH_GAME_NUM = 100
+TRAIN_EPOCH_REPEAT_NUM = 1
+SUMMARY_INTERVAL = 3
 BATCH_SIZE = 100
 L2_DECAY = 0.0001
 MOMENTUM = 0.9
 BASE_LEARNING_RATE = 0.001
 LEARNING_RATE_DECAY = 0.98
 LEARNING_RATE_DECAY_STEP = 1000
+
+# compare
+COMPARE_TIME = 20
+COMPARE_WIN_RATE = 0.55
+
 
 # function
 CLEAR = gc.collect
@@ -108,8 +114,45 @@ def pai_dir_copy(from_path, to_path, pattern='*', overwrite=True):
         file_path = os.path.join(to_path, file_name)
         pai_copy(file, file_path, overwrite)
 
+def pai_model_copy(model_num):
+    model_pattern = os.path.join(PAI_MODEL_PATH, 'model-{}*'.format(model_num))
+    model_path = pai_find_path(model_pattern)
+    assert len(model_path) > 0, 'Model {} does not exist'.format(model_num)
+    for model_part in model_path:
+        model_part_name = model_part.split('/')[-1]
+        model_part_path = os.path.join(MODEL_PATH, model_part_name)
+        pai_copy(model_part, model_part_path)
+
+    if not tf.gfile.Exists(os.path.join(MODEL_PATH, 'best')):
+        pai_copy(os.path.join(PAI_MODEL_PATH, 'best'), os.path.join(MODEL_PATH, 'best'))
+    if not tf.gfile.Exists(os.path.join(MODEL_PATH, 'checkpoint')):
+        pai_copy(os.path.join(PAI_MODEL_PATH, 'checkpoint'), os.path.join(MODEL_PATH, 'checkpoint'))
+
 def pai_find_path(pattern):
     return tf.gfile.Glob(pattern)
+
+def pai_read_compare_record(best_num, compare_num):
+    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(best_num, compare_num))
+    try:
+        with tf.gfile.GFile(compare_record_path) as file:
+            win, total = file.read().split('-')
+        return int(win), int(total)
+    except:
+        with tf.gfile.GFile(compare_record_path, 'w') as file:
+            file.write('0-0')
+        return 0, 0
+
+def pai_write_compare_record(best_num, compare_num, compare_win):
+    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(best_num, compare_num))
+    win, total = pai_read_compare_record()
+    win = win + 1 if compare_win else win
+    total = total + 1
+    with tf.gfile.GFile(compare_record_path, 'w') as file:
+        file.write('{}-{}'.format(win, total))
+
+def pai_change_best(best_num):
+    with tf.gfile.FastGFile(os.path.join(PAI_MODEL_PATH, 'best'), 'w') as file:
+        file.write(str(best_num))
 
 # init
 path_init([LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH, SUMMARY_PATH])
