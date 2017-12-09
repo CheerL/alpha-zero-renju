@@ -18,7 +18,7 @@ def pai_constant_init():
     utils.PAI_SUMMARY_PATH = os.path.join(utils.PAI_ROOT_PATH, 'summary')
     path_list = [utils.PAI_DB_PATH, utils.PAI_MODEL_PATH, utils.PAI_RECORD_PATH, utils.PAI_SUMMARY_PATH]
     utils.path_init(path_list, True)
-    utils.pai_dir_copy(utils.PAI_MODEL_PATH, utils.MODEL_PATH)
+    # utils.pai_dir_copy(utils.PAI_MODEL_PATH, utils.MODEL_PATH)
 
 def main(_):
     pai_constant_init()

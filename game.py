@@ -146,8 +146,8 @@ def main():
     game = Game(utils.MCTS, utils.MCTS)
     if utils.USE_PAI:
         db_pattern = os.path.join(utils.PAI_DB_PATH, '*')
-        while len(utils.pai_find_path(db_pattern)) < utils.TRAIN_EPOCH_GAME_NUM:
-            game.logger.info('There are {} records now'.format(len(utils.pai_find_path(db_pattern))))
+        while len(utils.pai_find_path(db_pattern)) / 2 < utils.TRAIN_EPOCH_GAME_NUM:
+            game.logger.info('There are {} records now'.format(len(utils.pai_find_path(db_pattern))/ 2))
             game.start()
             game.reset()
     else:

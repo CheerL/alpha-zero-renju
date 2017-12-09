@@ -9,17 +9,16 @@ from functools import wraps
 
 
 def no_same_net(net):
-    net_dict = {}
     @wraps(net)
     def _no_same_net(model_num=-1):
         if model_num not in net.net_dict:
             new_net = net(model_num)
             if model_num is -1:
-                net_dict[-1] = new_net
+                net.net_dict[-1] = new_net
 
             return new_net
         else:
-            return net_dict[model_num]
+            return net.net_dict[model_num]
     return _no_same_net
 
 @no_same_net
@@ -246,20 +245,14 @@ class Net(object):
                         break
             self.logger.info('Training end')
 
-    def model_path(self, suffix, pai=False):
+    def model_path(self, suffix):
         if utils.USE_PAI:
-            if pai:
-                return os.path.join(utils.PAI_MODEL_PATH, suffix)
-            else:
-                return os.path.join(utils.MODEL_PATH, suffix)
+            return os.path.join(utils.PAI_MODEL_PATH, suffix)
         else:
             return os.path.join(utils.MODEL_PATH, suffix)
 
     def exist_model(self, model_num):
-        if model_num is -1:
-            return tf.gfile.Exists(self.model_path('model-best.index'))
-        else:
-            return tf.gfile.Exists(self.model_path('model-{}.index'.format(model_num)))
+        return tf.gfile.Exists(self.model_path('model-{}.index'.format(model_num)))
 
     def load_model(self, model_num):
         assert isinstance(model_num, int), 'model num must be int'
@@ -269,8 +262,8 @@ class Net(object):
             try:
                 with tf.gfile.FastGFile(self.model_path('best')) as file:
                     model_num = int(file.read())
-                    self.logger.info('Best model is {}'.format(model_num))
                     assert self.exist_model(model_num), 'Best model {} does not exist'.format(model_num)
+                    self.logger.info('Best model is {}'.format(model_num))
             except Exception as e:
                 self.logger.error(e)
                 model_num = 0
@@ -304,12 +297,12 @@ class Net(object):
             self.logger.info('Best model is {}'.format(model_num))
             self.net_dict[-1] = self
 
-        if utils.USE_PAI:
-            pattern = 'model-{}*'.format(model_num)
-            utils.pai_dir_copy(utils.MODEL_PATH, utils.PAI_MODEL_PATH, pattern)
-            utils.pai_copy(self.model_path('checkpoint'), self.model_path('checkpoint', True))
-            if write_best_record:
-                utils.pai_copy(self.model_path('best'), self.model_path('best', True))
+    def get_model_num(self):
+        model_num = self.sess.run(self.epoch)
+        if model_num > 0:
+            return model_num - 1
+        else:
+            return os.path.join(utils.MODEL_PATH, suffix)
 
 
 def main():
