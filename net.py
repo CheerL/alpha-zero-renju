@@ -131,7 +131,8 @@ class Net(object):
         return vh
 
     def add_accuracy(self, predict, expect):
-        accuracy = tl.metrics.accuracy_op(predict, expect)
+        # accuracy = tl.metrics.accuracy_op(predict, expect)
+        accuracy = tf.reduce_mean(tf.cast(tf.nn.in_top_k(predict, tf.argmax(expect, 1), 5), tf.float32))
         tf.summary.scalar('accuracy', accuracy)
         return accuracy
 
@@ -139,7 +140,7 @@ class Net(object):
         xent = tl.objectives.categorical_crossentropy(predict, expect)
         square = tf.reduce_sum(tf.square(value - reward))
         l2 = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-        loss = xent + square + l2
+        loss = xent + 0.1 * square + l2
         tf.summary.scalar('xent', xent)
         tf.summary.scalar('square', square)
         tf.summary.scalar('l2', l2)
