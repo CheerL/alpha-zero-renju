@@ -37,6 +37,9 @@ class Player(object):
     def win(self):
         self.logger.info('{} win'.format(self.color_str))
 
+    def lose(self):
+        pass
+
     def reset(self):
         pass
 
@@ -100,28 +103,21 @@ class MCTSPlayer(Player):
 
     def win(self):
         super(MCTSPlayer, self).win()
+        self.save_history_to_tfrecord(1)
 
-        tfr_name = 'game{}.tfrecord'.format(time.time())
-        # tfr_path = os.path.join(utils.DB_PATH, tfr_name)
-        if utils.USE_PAI:
-            tfr_path = os.path.join(utils.PAI_DB_PATH, tfr_name)
-        else:
-            tfr_path = os.path.join(utils.DB_PATH, tfr_name)
+    def lose(self):
+        self.save_history_to_tfrecord(-1)
+
+    def save_history_to_tfrecord(self, reward):
+        net_model_num = self.mct.net.get_model_num()
+        tfr_name = 'game-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
+        tfr_path = os.path.join(utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH, tfr_name)
         tfr_writer = generate_writer(tfr_path)
 
         for i, expect in enumerate(self.prob_history):
             feature = self.game.board.get_feature(self.color, i)
-            reward = 1
             example = generate_example(feature, expect, reward)
             tfr_writer.write(example.SerializeToString())
-
-        oppo_player = self.game.black_player if self.color is utils.WHITE else self.game.white_player
-        if oppo_player.player_type is utils.MCTS:
-            for i, expect in enumerate(oppo_player.prob_history):
-                feature = oppo_player.game.board.get_feature(oppo_player.color, i)
-                reward = -1
-                example = generate_example(feature, expect, reward)
-                tfr_writer.write(example.SerializeToString())
 
         tfr_writer.close()
 

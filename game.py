@@ -95,14 +95,15 @@ class Game(object):
 
     def game_over(self):
         self.logger.info('Game over')
+        self.run = False
+
         if self.board.winner is utils.EMPTY:
             self.logger.info('End in a draw')
         else:
             self.now_player.win()
-
-        if utils.SAVE_PSQ:
-            self.save_record()
-        self.run = False
+            self.last_player.lose()
+            if utils.SAVE_PSQ:
+                self.save_record()
 
     def show(self, board):
         show_board = board.astype(object)
