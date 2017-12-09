@@ -100,7 +100,8 @@ class Game(object):
         else:
             self.now_player.win()
 
-        self.save_record()
+        if utils.SAVE_PSQ:
+            self.save_record()
         self.run = False
 
     def show(self, board):
