@@ -5,10 +5,12 @@ game of Go; everything in this file is implemented generically with respect to s
 policy function, and value function.
 """
 from __future__ import unicode_literals
+from __future__ import print_function
 from copy import deepcopy
 
 import numpy as np
 import utils
+from utils.timeit import timeit_context
 from scipy.stats import dirichlet
 from net import Net
 from board import Board
@@ -25,7 +27,6 @@ class MCTNode(object):
         self.N = 0              # visit time
         self.W = 0              # total action value
         self.Q = 0              # mean action value
-        self.end = False        # game over
 
     def __del__(self):
         del self.children
@@ -48,6 +49,14 @@ class MCTNode(object):
 
             del self.children
         self.children = {}
+
+    def clear_to_root(self):
+        self.release_parent()
+        self.release_children()
+        self.P = 1.0
+        self.N = 0
+        self.W = 0
+        self.Q = 0
 
     def get_Q_plus_U(self):
         '''Q + U'''
@@ -129,6 +138,7 @@ class MCT(object):
                                                                 # round < 30    : 1
                                                                 # round >= 30   : 0.01
         self.dirichlet_noise_distribute = dirichlet(np.ones(self.board.full_size) * 0.03)
+        self.noise_rate = utils.NOISE_RATE
         self.net = Net()
 
     def play(self):
@@ -142,31 +152,30 @@ class MCT(object):
         None
         """
         evaluate_time = 0
-        while evaluate_time < self.max_evaluate_time:
-            index, node = None, self.root
-            temp_board = deepcopy(self.board)
-            # go down to leaf node
-            while not node.is_leaf():
-                index, node = node.select()
-                temp_board.move(index)
-                temp_board.round_change(1)
-            # come a leaf node
-            if node.end:
-                node.backup(0)
-            elif index is not None and temp_board.judge_win(temp_board.index2xy(index)):
-                node.backup(1)
-                node.end = True
-            elif temp_board.judge_round_up():
-                node.backup(0)
-                node.end = True
-            else:
-                predict, value = self.evaluate(temp_board)
-                node.expand(predict)
-                node.backup(value)
-            evaluate_time += 1
+        actual_evaluate_time = 0
+        with timeit_context('search main'):
+            while evaluate_time < self.max_evaluate_time:
+                index, node = None, self.root
+                temp_board = deepcopy(self.board)
+                # go down to leaf node
+                while not node.is_leaf():
+                    index, node = node.select()
+                    temp_board.move(index)
+                    temp_board.round_change(1)
+                # come a leaf node
+                if index is not None and temp_board.judge_win(index):
+                    node.backup(1)
+                elif temp_board.judge_round_up():
+                    node.backup(0)
+                else:
+                    predict, value = self.evaluate(temp_board)
+                    node.expand(predict)
+                    node.backup(value)
+                    actual_evaluate_time += 1
+                evaluate_time += 1
+            print(actual_evaluate_time)
 
-            del temp_board
-
+        del temp_board
         utils.CLEAR()
 
     def evaluate(self, board):
@@ -201,7 +210,7 @@ class MCT(object):
             ],
             np.float64
             )
- 
+
         while move_probability.sum() == np.inf or move_probability.sum() < 0:
             temperature_para /= 2.0
             move_probability = np.array(
@@ -214,34 +223,32 @@ class MCT(object):
 
         return (move_probability / move_probability.sum()).astype(np.float32)
 
-    def update(self, move, oppo_move):
+    def update(self, index, oppo_index):
         """Step forward in the tree, keeping everything we already know about the subtree, assuming
         that get_move() has been called already. Siblings of the new root will be garbage-collected.
         """
-        self.update_one(move)
-        self.update_one(oppo_move)
+        # print(index, oppo_index)
+        self.update_one(index)
+        self.update_one(oppo_index)
 
-    def update_one(self, last_move):
-        index = self.board.xy2index(last_move)
+    def update_one(self, index):
         if self.root.children and index in self.root.children:
             self.root = self.root.children[index]
             self.root.release_parent()
         else:
-            self.root = MCTNode(None, 1.0)
+            self.root.clear_to_root()
 
     def get_move(self, probability):
-        noise_rate = 0.25
-        noise = self.dirichlet_noise_distribute.rvs()[0]
-        probability = (1 - noise_rate) * probability + noise_rate * noise
-        probability[self.board.board != 0] = 0
-        probability = probability / probability.sum()
-        move_index = np.random.choice(np.arange(self.board.full_size), p=probability)
-        return move_index
+        if self.noise_rate > 0:
+            noise = self.dirichlet_noise_distribute.rvs()[0]
+            probability = (1 - self.noise_rate) * probability + self.noise_rate * noise
+            probability[self.board.board != 0] = 0
+            probability = probability / probability.sum()
+        index = np.random.choice(np.arange(self.board.full_size), p=probability)
+        return index
 
     def reset(self):
-        self.root.release_parent()
-        self.root.release_children()
-        self.root = MCTNode(None, 1.0)
+        self.root.clear_to_root()
         self.tau = 1
 
     def reset_net(self, model_num):

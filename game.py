@@ -44,34 +44,34 @@ class Game(object):
         else:
             return self.black_player
 
-    def add_history(self, move):
-        self.history.append(move)
+    def add_history(self, index):
+        self.history.append(index)
 
     def round_back(self):
         if self.board.round_num > 0:
-            last_move = self.history.pop()
-            self.now_player.undo(last_move)
-            del last_move
+            last_index = self.history.pop()
+            self.now_player.undo(last_index)
+            del last_index
         else:
             self.logger.warning('That is the first round')
 
-    def round_process(self, move=None):
-        if not move:
+    def round_process(self, index=None):
+        if not index:
             if self.now_player.player_type is not utils.GOMOCUP:
-                move = self.now_player.get_move()
+                index = self.now_player.get_move()
             else:
                 raise AttributeError('gomocup player does not get move')
 
-        self.now_player.move(move)
-        self.add_history(move)
+        self.now_player.move(index)
+        self.add_history(index)
 
-        if self.board.judge_win(move):
+        if self.board.judge_win(index):
             self.game_over()
         elif self.board.judge_round_up():
             self.game_over()
         else:
             self.board.round_change(1)
-        return move
+        return index
 
     def start(self):
         while self.run:
@@ -132,8 +132,9 @@ class Game(object):
         with open(record_path, 'w+') as file:
             file.write('Piskvorky {}x{}, 0:0, 1\n'.format(self.board.size, self.board.size))
 
-            for move in self.history:
-                file.write('{},{},0\n'.format(move.x + 1, move.y + 1))
+            for index in self.history:
+                x, y = index % self.board.size, index // self.board.size
+                file.write('{},{},0\n'.format(x + 1, y + 1))
 
             file.write('-1\n')
 
@@ -145,8 +146,8 @@ class Game(object):
             utils.pai_copy(record_path, pai_record_path)
 
 def main():
-    game = Game(utils.MCTS, utils.MCTS)
     if utils.USE_PAI:
+        game = Game(utils.MCTS, utils.MCTS)
         model_num = game.black_player.mct.net.get_model_num()
         db_pattern = os.path.join(utils.PAI_DB_PATH, 'game-{}-*'.format(model_num))
         while len(utils.pai_find_path(db_pattern)) / 2 < utils.TRAIN_EPOCH_GAME_NUM:
@@ -154,13 +155,16 @@ def main():
             game.start()
             game.reset()
     else:
+        game = Game()
         game.start()
 
 def compare(compare_model_num):
     if utils.USE_PAI:
-        utils.pai_model_copy(compare_model_num)
         game = Game(utils.MCTS, utils.MCTS)
         best_model_num = game.black_player.mct.net.get_model_num()
+        if compare_model_num != best_model_num:
+            utils.pai_model_copy(compare_model_num)
+
         while True:
             win, total = utils.pai_read_compare_record(best_model_num, compare_model_num)
             game.logger.info('Now compare result: {}-{}'.format(win, total))
@@ -169,9 +173,11 @@ def compare(compare_model_num):
 
             black_as_best = np.random.choice([True, False])
             if black_as_best:
+                game.logger.info('Black as best')
                 game.black_player.mct.reset_net(best_model_num)
                 game.white_player.mct.reset_net(compare_model_num)
             else:
+                game.logger.info('White as best')
                 game.black_player.mct.reset_net(compare_model_num)
                 game.white_player.mct.reset_net(best_model_num)
 

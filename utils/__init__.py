@@ -58,10 +58,11 @@ HOST = 'localhost'
 PORT = 10329
 
 # MCTS
-MAX_MCTS_EVALUATE_TIME = 100
-TAU_CHANGE_ROUND = 0
+MAX_MCTS_EVALUATE_TIME = 800
+TAU_CHANGE_ROUND = 30
 TAU_UP = 1.0
-TAU_LOW = 0.01
+TAU_LOW = 0.05
+NOISE_RATE = 0.25
 
 # network
 BOARD_HISTORY_LENGTH = 5
@@ -78,18 +79,20 @@ VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
 # train
-TRAIN_EPOCH_GAME_NUM = 100
-TRAIN_EPOCH_REPEAT_NUM = 1
-SUMMARY_INTERVAL = 10
-BATCH_SIZE = 100
+TRAIN_EPOCH_GAME_NUM = 500
+TRAIN_EPOCH_REPEAT_NUM = 200
+SUMMARY_INTERVAL = 5
+BATCH_SIZE = 64
 L2_DECAY = 0.0001
 MOMENTUM = 0.9
-BASE_LEARNING_RATE = 0.001
-LEARNING_RATE_DECAY = 0.98
-LEARNING_RATE_DECAY_STEP = 1000
+BASE_LEARNING_RATE = 0.000001           # 10e-6
+LEARNING_RATE_DECAY = 0.95
+LEARNING_RATE_DECAY_STEP = 500
+XENT_COEF = 1
+SQUARE_COEF = 1
 
 # compare
-COMPARE_TIME = 20
+COMPARE_TIME = 50
 COMPARE_WIN_RATE = 0.55
 
 
@@ -144,7 +147,7 @@ def pai_read_compare_record(best_num, compare_num):
 
 def pai_write_compare_record(best_num, compare_num, compare_win):
     compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(best_num, compare_num))
-    win, total = pai_read_compare_record()
+    win, total = pai_read_compare_record(best_num, compare_num)
     win = win + 1 if compare_win else win
     total = total + 1
     with tf.gfile.GFile(compare_record_path, 'w') as file:

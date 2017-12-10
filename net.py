@@ -36,7 +36,7 @@ class Net(object):
             self.expect = tf.placeholder(tf.float32, [None, utils.SIZE ** 2], name='expect')
             self.reward = tf.placeholder(tf.float32, [None, 1], name='reward')
             self.train_step = tf.get_variable('train_step', initializer=0, dtype=tf.int32, trainable=False)
-            self.epoch = tf.get_variable('epoch', initializer=0, dtype=tf.int32, trainable=False)
+            self.epoch = tf.get_variable('epoch', initializer=-1, dtype=tf.int32, trainable=False)
             self.predict = None
             self.value = None
             self.net = None
@@ -131,15 +131,15 @@ class Net(object):
 
     def add_accuracy(self, predict, expect):
         # accuracy = tl.metrics.accuracy_op(predict, expect)
-        accuracy = tf.reduce_mean(tf.cast(tf.nn.in_top_k(predict, tf.argmax(expect, 1), 5), tf.float32))
+        accuracy = tf.reduce_mean(tf.cast(tf.nn.in_top_k(predict, tf.argmax(expect, 1), 3), tf.float32))
         tf.summary.scalar('accuracy', accuracy)
         return accuracy
 
     def add_loss(self, predict, expect, value, reward):
         xent = tl.objectives.categorical_crossentropy(predict, expect)
-        square = tf.reduce_sum(tf.square(value - reward))
+        square = tf.reduce_mean(tf.square(value - reward))
         l2 = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-        loss = xent + 0.1 * square + l2
+        loss = utils.XENT_COEF * xent + utils.SQUARE_COEF * square + l2
         tf.summary.scalar('xent', xent)
         tf.summary.scalar('square', square)
         tf.summary.scalar('l2', l2)
@@ -221,28 +221,18 @@ class Net(object):
                     epoch + 1, utils.TRAIN_EPOCH_REPEAT_NUM))
                 while True:
                     try:
-                        for _ in range(utils.SUMMARY_INTERVAL):
-                            feature, expect, reward = self.sess.run(next_batch)
-                            self.sess.run(
-                                self.trainer,
-                                feed_dict={
-                                    self.feature: feature,
-                                    self.expect: expect,
-                                    self.reward: reward
-                                })
-                            # train_step, summary, _ = self.sess.run(
-                            #     [self.train_step, self.summary, self.trainer],
-                            #     feed_dict={
-                            #         self.feature: feature,
-                            #         self.expect: expect,
-                            #         self.reward: reward
-                            #     })
-                            # self.summary_writer.add_summary(summary, train_step)
-                            # self.logger.info('Save summary {}'.format(train_step))
-                        else:
-                            feature, expect, reward = self.sess.run(next_batch)
-                            train_step, summary = self.sess.run(
-                                [self.train_step, self.summary],
+                        feature, expect, reward = self.sess.run(next_batch)
+                        _, train_step = self.sess.run(
+                            [self.trainer, self.train_step],
+                            feed_dict={
+                                self.feature: feature,
+                                self.expect: expect,
+                                self.reward: reward
+                            })
+
+                        if train_step % utils.SUMMARY_INTERVAL == 0:
+                            p, v, summary = self.sess.run(
+                                [self.predict, self.value, self.summary],
                                 feed_dict={
                                     self.feature: feature,
                                     self.expect: expect,
@@ -250,14 +240,7 @@ class Net(object):
                                 })
                             self.summary_writer.add_summary(summary, train_step)
                             self.logger.info('Save summary {}'.format(train_step))
-                            # p, v = self.sess.run(
-                            #     [self.predict, self.value],
-                            #     feed_dict={
-                            #         self.feature: feature,
-                            #         self.expect: expect,
-                            #         self.reward: reward
-                            #     })
-                            # print(p[3], expect[3], v[3], reward[3])
+                            print(p[3], v[3])
                     except tf.errors.OutOfRangeError:
                         break
             self.logger.info('Training end')
@@ -301,7 +284,7 @@ class Net(object):
                 self.load_model(-1)
 
     def save_model(self, write_best_record=False):
-        model_num = self.sess.run(self.epoch)
+        model_num = self.sess.run(self.epoch.assign_add(1))
         self.saver.save(self.sess, self.model_path('model', True), self.epoch)
         self.net_dict[model_num] = self
         self.logger.info('Save model {}'.format(model_num))
@@ -316,19 +299,16 @@ class Net(object):
             self.net_dict[-1] = self
 
     def get_model_num(self):
-        model_num = self.sess.run(self.epoch)
-        if model_num > 0:
-            return model_num - 1
-        else:
-            return 0
+        return self.sess.run(self.epoch)
 
 
 def main():
+    model_num = 0
     db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
-    records = utils.pai_find_path(os.path.join(db_path, 'game*'))
-    net = Net()
+    records = utils.pai_find_path(os.path.join(db_path, 'game-{}*'.format(model_num)))
+    net = Net(model_num)
     net.train(records)
-    net.save_model()
+    # net.save_model()
 
 if __name__ == '__main__':
     main()

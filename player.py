@@ -1,5 +1,7 @@
 # -*- coding:utf-8 -*-
 from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
 
 import os
 import time
@@ -19,19 +21,20 @@ class Player(object):
         self.color_str = utils.COLOR[color]
         self.player_type = player_type
         self.game = game
+        self.size = game.board.size
         self.logger.info('Create new {} {}'.format(self.color_str, type(self).__name__))
 
-    def move(self, move):
+    def move(self, index):
         '''在`(x, y)`处落子'''
-        self.game.board.move(move)
+        self.game.board.move(index)
         self.logger.info('Round {}, {} move ({}:{})'.format(
-            self.game.board.round_num, self.color_str, move.x, move.y
+            self.game.board.round_num, self.color_str, index % self.size, index // self.size
             ))
 
-    def undo(self, move):
+    def undo(self, index):
         self.game.board.undo()
         self.logger.info('Round back to {}, {} undo ({},{})'.format(
-            self.game.board.round_num, self.color_str, move.x, move.y
+            self.game.board.round_num, self.color_str, index % self.size, index // self.size
             ))
 
     def win(self):
@@ -65,7 +68,7 @@ class RandomPlayer(Player):
 
     def get_move(self):
         index = np.random.choice(self.game.board.empty_pos)
-        return self.game.board.index2xy(index)
+        return index
 
 
 class MCTSPlayer(Player):
@@ -86,15 +89,15 @@ class MCTSPlayer(Player):
             if len(self.game.history) is 1:
                 self.mct.update_one(self.game.history[0])
             else:
-                self.mct.update(*self.game.history[-2:])
+                self.mct.update(self.game.history[-2], self.game.history[-1])
 
         self.mct.play()
         self.probability = self.mct.get_move_probability()
         self.add_history()
-        return self.game.board.index2xy(self.mct.get_move(self.probability))
+        return self.mct.get_move(self.probability)
 
-    def undo(self, move):
-        super(MCTSPlayer, self).undo(move)
+    def undo(self, index):
+        super(MCTSPlayer, self).undo(index)
         self.probability = self.prob_history.pop()
         if self.mct.root.parent and self.mct.root.parent.parent:
             self.mct.root = self.mct.root.parent.parent

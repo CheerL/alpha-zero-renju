@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 from __future__ import division
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import numpy as np
 import utils
@@ -34,34 +35,34 @@ class Board(object):
         '''将序号`index`变为坐标`(x, y)`'''
         return utils.Move(index % self.size, index // self.size)
 
-    def row(self, move):
+    def row(self, y):
         '''获取第`y`行'''
-        return self.board[move.y * self.size: (move.y + 1) * self.size]
+        return self.board[y * self.size: (y + 1) * self.size]
 
-    def col(self, move):
+    def col(self, x):
         '''获取第`x`列'''
-        return self.board[move.x::self.size]
+        return self.board[x::self.size]
 
-    def diag(self, move):
+    def diag(self, x, y):
         '''获取`(x, y)`处对角线'''
-        if move.x >= move.y:
-            return self.board[move.x - move.y:(self.size - (move.x - move.y)) * self.size:self.size + 1]
+        if x >= y:
+            return self.board[x - y:(self.size - (x - y)) * self.size:self.size + 1]
         else:
-            return self.board[(move.y - move.x) * self.size:self.full_size:self.size + 1]
+            return self.board[(y - x) * self.size:self.full_size:self.size + 1]
 
-    def back_diag(self, move):
+    def back_diag(self, x, y):
         '''获取`(x, y)`处反对角线'''
-        if move.x + move.y < 15:
-            return self.board[move.x + move.y:(move.x + move.y) * self.size + 1:self.size - 1]
+        if x + y < 15:
+            return self.board[x + y:(x + y) * self.size + 1:self.size - 1]
         else:
-            return self.board[(move.x + move.y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]
+            return self.board[(x + y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]
 
-    def judge_win(self, move):
+    def judge_win(self, index):
         '''检查`(x, y)`周围情况, 判断是否获胜'''
-        color = self.board[self.xy2index(move)]
-
+        color = self.board[index]
         target = utils.WIN_NUM * color
-        lines = [self.row(move), self.col(move), self.diag(move), self.back_diag(move)]
+        x, y = index % self.size, index // self.size
+        lines = [self.row(y), self.col(x), self.diag(x, y), self.back_diag(x, y)]
         for line in lines:
             if line.size < utils.WIN_NUM:
                 continue
@@ -75,14 +76,7 @@ class Board(object):
     def judge_round_up(self):
         return np.all(self.board)
 
-    def move(self, move_or_index):
-        if isinstance(move_or_index, utils.Move):
-            index = self.xy2index(move_or_index)
-        elif isinstance(move_or_index, int):
-            index = move_or_index
-        else:
-            raise AttributeError('neither move or index')
-
+    def move(self, index):
         assert 0 <= index < self.full_size, 'index out of range'
         assert self.board[index] == utils.EMPTY, 'target is not empty'
         self.board[index] = self.now_color
