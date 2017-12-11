@@ -52,6 +52,7 @@ FULL_SIZE = SIZE ** 2
 WIN_NUM = 5
 SAVE_PSQ = False
 SAVE_RECORD = True
+SAVE_MODEL = False
 
 # socket
 HOST = 'localhost'
@@ -79,20 +80,20 @@ VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
 # train
-TRAIN_EPOCH_GAME_NUM = 500
-TRAIN_EPOCH_REPEAT_NUM = 200
+TRAIN_EPOCH_GAME_NUM = 100
+TRAIN_EPOCH_REPEAT_NUM = 20
 SUMMARY_INTERVAL = 5
 BATCH_SIZE = 64
 L2_DECAY = 0.0001
 MOMENTUM = 0.9
-BASE_LEARNING_RATE = 0.000001           # 10e-6
-LEARNING_RATE_DECAY = 0.95
+BASE_LEARNING_RATE = 0.0000005           # 10e-6
+LEARNING_RATE_DECAY = 0.98
 LEARNING_RATE_DECAY_STEP = 500
 XENT_COEF = 1
 SQUARE_COEF = 1
 
 # compare
-COMPARE_TIME = 50
+COMPARE_TIME = 30
 COMPARE_WIN_RATE = 0.55
 
 
@@ -118,13 +119,15 @@ def pai_dir_copy(from_path, to_path, pattern='*', overwrite=True):
         pai_copy(file, file_path, overwrite)
 
 def pai_model_copy(model_num):
-    model_pattern = os.path.join(PAI_MODEL_PATH, 'model-{}*'.format(model_num))
-    model_path = pai_find_path(model_pattern)
-    assert len(model_path) > 0, 'Model {} does not exist'.format(model_num)
-    for model_part in model_path:
-        model_part_name = model_part.split('/')[-1]
-        model_part_path = os.path.join(MODEL_PATH, model_part_name)
-        pai_copy(model_part, model_part_path)
+    local_model_pattern = os.path.join(MODEL_PATH, 'model-{}*'.format(model_num))
+    if not pai_find_path(local_model_pattern):
+        model_pattern = os.path.join(PAI_MODEL_PATH, 'model-{}*'.format(model_num))
+        model_path = pai_find_path(model_pattern)
+        assert len(model_path) > 0, 'Model {} does not exist'.format(model_num)
+        for model_part in model_path:
+            model_part_name = model_part.split('/')[-1]
+            model_part_path = os.path.join(MODEL_PATH, model_part_name)
+            pai_copy(model_part, model_part_path)
 
     if not tf.gfile.Exists(os.path.join(MODEL_PATH, 'best')):
         pai_copy(os.path.join(PAI_MODEL_PATH, 'best'), os.path.join(MODEL_PATH, 'best'))

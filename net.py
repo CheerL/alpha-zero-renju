@@ -302,13 +302,19 @@ class Net(object):
         return self.sess.run(self.epoch)
 
 
-def main():
-    model_num = 0
+def train(model_num=None):
+    if model_num is None:
+        model_path = utils.PAI_MODEL_PATH if utils.USE_PAI else utils.MODEL_PATH
+        with tf.gfile.FastGFile(os.path.join(model_path, 'best')) as file:
+            model_num = int(file.read())
+
+    utils.pai_model_copy(model_num)
     db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
     records = utils.pai_find_path(os.path.join(db_path, 'game-{}*'.format(model_num)))
     net = Net(model_num)
     net.train(records)
-    # net.save_model()
+    if utils.SAVE_MODEL:
+        net.save_model()
 
 if __name__ == '__main__':
-    main()
+    pass

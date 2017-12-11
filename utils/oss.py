@@ -10,7 +10,7 @@ class OssManager(object):
 
     def __init__(self):
         self.auth = oss2.Auth(self.AKID, self.AKSECRET)
-        self.bucket = oss2.Bucket(self.auth, self.ENDPOINT, self.DL_OSS, connect_timeout=10)
+        self.bucket = oss2.Bucket(self.auth, self.ENDPOINT, self.DL_OSS, connect_timeout=60)
 
     def list_dir(self, path, prefix=''):
         return [obj.key for obj in oss2.ObjectIterator(self.bucket, prefix=path + prefix)]
@@ -30,3 +30,6 @@ class OssManager(object):
 
     def upload_files(self, form_path, to_path):
         pass
+
+    def copy_file(self, from_path, to_path):
+        self.bucket.copy_object(self.DL_OSS, from_path, to_path)

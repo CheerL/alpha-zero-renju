@@ -31,9 +31,9 @@ def copy_best_model():
 def main(_):
     pai_constant_init()
     utils.SAVE_RECORD = False
-    utils.TAU_CHANGE_ROUND = 0
+    utils.TAU_CHANGE_ROUND = 10
     utils.NOISE_RATE = 0.1
-    game.compare(1)
+    game.compare(2)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
