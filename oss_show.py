@@ -4,7 +4,7 @@ from utils.oss import OssManager
 app = Flask('oss')
 om = OssManager()
 
-app.route('/oss/')
+@app.route('/oss/')
 def index():
     def content(parent_path):
         return {
@@ -12,10 +12,9 @@ def index():
             'Winrate': om.get_win_rate(parent_path)
         }
 
-    return {
-        'alpha': content('alpha'),
+    return jsonify({
         'alpha_zero': content('alpha_zero')
-    }
+    })
 
 def main():
     app.run(host='0.0.0.0', port=8008)
