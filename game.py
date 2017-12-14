@@ -18,11 +18,22 @@ class Game(object):
     # logger.remove_stream_handler()
 
     def __init__(self, black_player_type=utils.RANDOM,
-                 white_player_type=utils.RANDOM, size=utils.SIZE):
+                 white_player_type=utils.RANDOM, size=utils.SIZE,
+                 black_net_model_num=None, white_net_model_num=None):
         self.logger.info('Start new game. Board size: {} * {}'.format(size, size))
         self.board = Board(size)
-        self.black_player = player_generate(black_player_type, utils.BLACK, self)
-        self.white_player = player_generate(white_player_type, utils.WHITE, self)
+        self.black_player = player_generate(
+            black_player_type,
+            utils.BLACK,
+            self,
+            black_net_model_num
+            )
+        self.white_player = player_generate(
+            white_player_type,
+            utils.WHITE,
+            self,
+            white_net_model_num
+            )
         self.run = True
         self.history = list()
 
@@ -125,7 +136,16 @@ class Game(object):
                 return path
 
         time_suffix = time.strftime('%Y%m%d-%H%M%S', time.localtime())
-        record_filename = 'record-{}.psq'.format(time_suffix + '{}')
+
+        if self.black_player.player_type is utils.MCTS and self.white_player.player_type is utils.MCTS:
+            record_filename = 'record-{}-{}-{}-{}.psq'.format(
+                self.black_player.get_model_num(),
+                self.white_player.get_model_num(),
+                self.board.winner,
+                time_suffix + '{}'
+                )
+        else:
+            record_filename = 'record-{}.psq'.format(time_suffix + '{}')
         record_path_format = os.path.join(utils.RECORD_PATH, record_filename)
         record_path = get_path_from_format(record_path_format)
 
@@ -147,26 +167,39 @@ class Game(object):
 
 def main():
     if utils.USE_PAI:
-        game = Game(utils.MCTS, utils.MCTS)
-        model_num = game.black_player.mct.net.get_model_num()
+        model_num = utils.pai_read_best()
         db_pattern = os.path.join(utils.PAI_DB_PATH, 'game-{}-*'.format(model_num))
-        while len(utils.pai_find_path(db_pattern)) / 2 < utils.TRAIN_EPOCH_GAME_NUM:
-            game.logger.info('There are {} records now'.format(len(utils.pai_find_path(db_pattern))/ 2))
-            game.start()
-            game.reset()
+        if len(utils.pai_find_path(db_pattern)) / 2 >= utils.TRAIN_EPOCH_GAME_NUM:
+            pass
+        else:
+            game = Game(utils.MCTS, utils.MCTS, black_net_model_num=model_num, white_net_model_num=model_num)
+            while len(utils.pai_find_path(db_pattern)) / 2 < utils.TRAIN_EPOCH_GAME_NUM:
+                game.logger.info('There are {} records now'.format(len(utils.pai_find_path(db_pattern))/ 2))
+                game.start()
+                utils.pai_win_rate_record(model_num, game.board.winner)
+                game.reset()
+            del game
+        time.sleep(120)
     else:
         game = Game()
         game.start()
 
-def compare(compare_model_num):
+def compare(compare_model_num=None, default_model_num=None):
     if utils.USE_PAI:
-        game = Game(utils.MCTS, utils.MCTS)
-        best_model_num = game.black_player.mct.net.get_model_num()
-        if compare_model_num != best_model_num:
-            utils.pai_model_copy(compare_model_num)
+        if compare_model_num is None:
+            compare_model_num = utils.pai_read_best()
+        if default_model_num is None:
+            default_model_num = utils.pai_read_best('compare')
 
+        win, total = utils.pai_read_compare_record(default_model_num, compare_model_num)
+        if total > utils.COMPARE_TIME or compare_model_num == default_model_num:
+            time.sleep(120)
+            return
+
+        game = Game(utils.MCTS, utils.MCTS, utils.SIZE, compare_model_num, default_model_num)
+        game.logger.info('Compare model {} with default model {}'.format(compare_model_num, default_model_num))
         while True:
-            win, total = utils.pai_read_compare_record(best_model_num, compare_model_num)
+            win, total = utils.pai_read_compare_record(default_model_num, compare_model_num)
             game.logger.info('Now compare result: {}-{}'.format(win, total))
             if total > utils.COMPARE_TIME:
                 break
@@ -174,25 +207,25 @@ def compare(compare_model_num):
             black_as_best = np.random.choice([True, False])
             if black_as_best:
                 game.logger.info('Black as best')
-                game.black_player.mct.reset_net(best_model_num)
+                game.black_player.mct.reset_net(default_model_num)
                 game.white_player.mct.reset_net(compare_model_num)
             else:
                 game.logger.info('White as best')
                 game.black_player.mct.reset_net(compare_model_num)
-                game.white_player.mct.reset_net(best_model_num)
+                game.white_player.mct.reset_net(default_model_num)
 
             game.start()
             winner = game.board.winner
             if winner is utils.EMPTY:
                 pass
             elif (winner is utils.BLACK and black_as_best) or (winner is utils.WHITE and not black_as_best):
-                utils.pai_write_compare_record(best_model_num, compare_model_num, False)
+                utils.pai_write_compare_record(default_model_num, compare_model_num, False)
             else:
-                utils.pai_write_compare_record(best_model_num, compare_model_num, True)
+                utils.pai_write_compare_record(default_model_num, compare_model_num, True)
             game.reset()
 
         if win / total > utils.COMPARE_WIN_RATE:
-            utils.pai_change_best(compare_model_num)
+            utils.pai_change_best(compare_model_num, 'compare')
             game.logger.info('Change best model to {}'.format(compare_model_num))
         else:
             game.logger.info('Best model does not change')

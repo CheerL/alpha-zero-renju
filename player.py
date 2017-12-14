@@ -46,6 +46,9 @@ class Player(object):
     def reset(self):
         pass
 
+    def get_model_num(self):
+        raise NotImplementedError()
+
     @property
     def show_board(self):
         '''以`size * size`的矩阵形式输出'''
@@ -53,17 +56,17 @@ class Player(object):
 
 
 class GomocupPlayer(Player):
-    def __init__(self, color, game):
+    def __init__(self, color, game, *args):
         super(GomocupPlayer, self).__init__(color, utils.GOMOCUP, game)
 
 
 class HumanPlayer(Player):
-    def __init__(self, color, game):
+    def __init__(self, color, game, *args):
         super(HumanPlayer, self).__init__(color, utils.HUMAN, game)
 
 
 class RandomPlayer(Player):
-    def __init__(self, color, game):
+    def __init__(self, color, game, *args):
         super(RandomPlayer, self).__init__(color, utils.RANDOM, game)
 
     def get_move(self):
@@ -72,11 +75,11 @@ class RandomPlayer(Player):
 
 
 class MCTSPlayer(Player):
-    def __init__(self, color, game):
+    def __init__(self, color, game, model_num):
         super(MCTSPlayer, self).__init__(color, utils.MCTS, game)
         self.prob_history = list()
         self.probability = None
-        self.mct = MCT(self.game.board)
+        self.mct = MCT(self.game.board, model_num)
 
     def add_history(self):
         if self.probability is not None:
@@ -111,6 +114,9 @@ class MCTSPlayer(Player):
     def lose(self):
         self.save_history_to_tfrecord(-1)
 
+    def get_model_num(self):
+        return self.mct.net.get_model_num()
+
     def save_history_to_tfrecord(self, reward):
         if utils.SAVE_RECORD:
             net_model_num = self.mct.net.get_model_num()
@@ -118,10 +124,15 @@ class MCTSPlayer(Player):
             tfr_path = os.path.join(utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH, tfr_name)
             tfr_writer = generate_writer(tfr_path)
 
-            for i, expect in enumerate(self.prob_history):
-                feature = self.game.board.get_feature(self.color, i)
-                example = generate_example(feature, expect, reward)
-                tfr_writer.write(example.SerializeToString())
+            for i, base_expect in enumerate(self.prob_history):
+                base_feature = self.game.board.get_feature(self.color, i)
+                base_expect = np.reshape(base_expect, (self.size, self.size))
+                for rot_num in range(8):
+                    rot = self.mct.net.rot[rot_num]
+                    feature = rot(base_feature, (1, 2))
+                    expect = rot(base_expect).reshape(self.game.board.full_size)
+                    example = generate_example(feature, expect, reward)
+                    tfr_writer.write(example.SerializeToString())
 
             tfr_writer.close()
 
@@ -131,7 +142,7 @@ class MCTSPlayer(Player):
         self.mct.reset()
 
 
-def player_generate(player_type, color, game):
+def player_generate(player_type, color, game, model_num=None):
     PLAYER_DICT = {
         utils.HUMAN: HumanPlayer,
         utils.GOMOCUP: GomocupPlayer,
@@ -142,4 +153,4 @@ def player_generate(player_type, color, game):
     if player_type not in PLAYER_DICT:
         raise AttributeError('no such player type')
 
-    return PLAYER_DICT[player_type](color, game)
+    return PLAYER_DICT[player_type](color, game, model_num)

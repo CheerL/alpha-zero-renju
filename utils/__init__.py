@@ -80,20 +80,19 @@ VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
 # train
-TRAIN_EPOCH_GAME_NUM = 100
-TRAIN_EPOCH_REPEAT_NUM = 20
+TRAIN_EPOCH_GAME_NUM = 20
+TRAIN_EPOCH_REPEAT_NUM = 10
+TRAIN_SAMPLE_NUM = 2 * 50
 SUMMARY_INTERVAL = 5
 BATCH_SIZE = 64
 L2_DECAY = 0.0001
 MOMENTUM = 0.9
-BASE_LEARNING_RATE = 0.0000005           # 10e-6
-LEARNING_RATE_DECAY = 0.98
-LEARNING_RATE_DECAY_STEP = 500
+BASE_LEARNING_RATE = 1e-6
 XENT_COEF = 1
 SQUARE_COEF = 1
 
 # compare
-COMPARE_TIME = 30
+COMPARE_TIME = 20
 COMPARE_WIN_RATE = 0.55
 
 
@@ -138,7 +137,7 @@ def pai_find_path(pattern):
     return tf.gfile.Glob(pattern)
 
 def pai_read_compare_record(best_num, compare_num):
-    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(best_num, compare_num))
+    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}.txt'.format(best_num, compare_num))
     try:
         with tf.gfile.GFile(compare_record_path) as file:
             win, total = file.read().split('-')
@@ -149,16 +148,37 @@ def pai_read_compare_record(best_num, compare_num):
         return 0, 0
 
 def pai_write_compare_record(best_num, compare_num, compare_win):
-    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(best_num, compare_num))
+    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}.txt'.format(best_num, compare_num))
     win, total = pai_read_compare_record(best_num, compare_num)
     win = win + 1 if compare_win else win
     total = total + 1
     with tf.gfile.GFile(compare_record_path, 'w') as file:
         file.write('{}-{}'.format(win, total))
 
-def pai_change_best(best_num):
-    with tf.gfile.FastGFile(os.path.join(PAI_MODEL_PATH, 'best'), 'w') as file:
+def pai_change_best(best_num, prefix=''):
+    model_path = PAI_MODEL_PATH if USE_PAI else MODEL_PATH
+    file_name = 'best' if prefix == '' else '-'.join([prefix, 'best'])
+    with tf.gfile.FastGFile(os.path.join(model_path, file_name), 'w') as file:
         file.write(str(best_num))
+
+def pai_read_best(prefix=''):
+    model_path = PAI_MODEL_PATH if USE_PAI else MODEL_PATH
+    file_name = 'best' if prefix == '' else '-'.join([prefix, 'best'])
+    with tf.gfile.FastGFile(os.path.join(model_path, file_name), 'r') as file:
+        return int(file.read())
+
+def pai_win_rate_record(model_num, color):
+    with tf.gfile.FastGFile(os.path.join(PAI_RECORD_PATH, 'winrate-{}'.format(model_num)), 'w+') as file:
+        try:
+            black_win, white_win = map(int, file.read().split('-'))
+        except:
+            black_win, white_win = 0, 0
+
+        if color is BLACK:
+            black_win += 1
+        elif color is WHITE:
+            white_win += 1
+        file.write('{}-{}'.format(black_win, white_win))
 
 # init
 path_init([LOG_PATH, RECORD_PATH, DB_PATH, MODEL_PATH, SUMMARY_PATH])

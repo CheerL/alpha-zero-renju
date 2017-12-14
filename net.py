@@ -1,4 +1,6 @@
 import os
+import time
+import random
 import numpy as np
 import tensorflow as tf
 import tflearn as tl
@@ -11,6 +13,8 @@ from functools import wraps
 def no_same_net(NET):
     @wraps(NET)
     def _no_same_net(model_num=-1):
+        if model_num is None:
+            model_num = -1
         if model_num not in NET.net_dict:
             new_net = NET(model_num)
             if model_num is -1:
@@ -149,9 +153,9 @@ class Net(object):
     def add_trainer(self, loss):
         momentum_optimizer = tl.optimizers.Momentum(
             learning_rate=utils.BASE_LEARNING_RATE,
-            momentum=utils.MOMENTUM,
-            lr_decay=utils.LEARNING_RATE_DECAY,
-            decay_step=utils.LEARNING_RATE_DECAY_STEP
+            momentum=utils.MOMENTUM
+            # lr_decay=utils.LEARNING_RATE_DECAY,
+            # decay_step=utils.LEARNING_RATE_DECAY_STEP
         )
         momentum_optimizer.build(self.train_step)
         return momentum_optimizer.get_tensor().minimize(loss, global_step=self.train_step)
@@ -240,13 +244,16 @@ class Net(object):
                                 })
                             self.summary_writer.add_summary(summary, train_step)
                             self.logger.info('Save summary {}'.format(train_step))
-                            print(p[3], v[3])
+                            try:
+                                print(p[0][:100], expect[0][:100], reward[0] - v[0])
+                            except:
+                                pass
                     except tf.errors.OutOfRangeError:
                         break
             self.logger.info('Training end')
 
-    def model_path(self, suffix, pai=True):
-        if utils.USE_PAI and pai:
+    def model_path(self, suffix):
+        if utils.USE_PAI:
             return os.path.join(utils.PAI_MODEL_PATH, suffix)
         else:
             return os.path.join(utils.MODEL_PATH, suffix)
@@ -260,10 +267,9 @@ class Net(object):
         if model_num is -1:
             self.logger.info('Try to load best model')
             try:
-                with tf.gfile.FastGFile(self.model_path('best')) as file:
-                    model_num = int(file.read())
-                    assert self.exist_model(model_num), 'Best model {} does not exist'.format(model_num)
-                    self.logger.info('Best model is {}'.format(model_num))
+                model_num = utils.pai_read_best()
+                assert self.exist_model(model_num), 'Best model {} does not exist'.format(model_num)
+                self.logger.info('Best model is {}'.format(model_num))
             except Exception as e:
                 self.logger.error(e)
                 model_num = 0
@@ -283,18 +289,23 @@ class Net(object):
                 self.logger.info('Model {} no exist, try to load best model'.format(model_num))
                 self.load_model(-1)
 
-    def save_model(self, write_best_record=False):
-        model_num = self.sess.run(self.epoch.assign_add(1))
-        self.saver.save(self.sess, self.model_path('model', True), self.epoch)
+    def save_model(self, write_best_record=False, model_num=None):
+        if model_num is None:
+            model_num = self.sess.run(self.epoch.assign_add(1))
+        else:
+            self.sess.run(self.epoch.assign(model_num))
+        self.saver.save(self.sess, self.model_path('model'), model_num)
         self.net_dict[model_num] = self
         self.logger.info('Save model {}'.format(model_num))
 
         if model_num > 0:
-            del self.net_dict[model_num - 1]
+            try:
+                del self.net_dict[model_num - 1]
+            except:
+                pass
 
         if write_best_record:
-            with tf.gfile.FastGFile(self.model_path('best', True), 'w') as file:
-                file.write(str(model_num))
+            utils.pai_change_best(model_num)
             self.logger.info('Best model is {}'.format(model_num))
             self.net_dict[-1] = self
 
@@ -302,19 +313,33 @@ class Net(object):
         return self.sess.run(self.epoch)
 
 
-def train(model_num=None):
+def train(model_num=None, save_model_num=None):
     if model_num is None:
-        model_path = utils.PAI_MODEL_PATH if utils.USE_PAI else utils.MODEL_PATH
-        with tf.gfile.FastGFile(os.path.join(model_path, 'best')) as file:
-            model_num = int(file.read())
+        model_num = utils.pai_read_best()
 
-    utils.pai_model_copy(model_num)
-    db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
-    records = utils.pai_find_path(os.path.join(db_path, 'game-{}*'.format(model_num)))
+    records = records_sample(model_num)
     net = Net(model_num)
     net.train(records)
     if utils.SAVE_MODEL:
-        net.save_model()
+        net.save_model(True, model_num=save_model_num)
+
+def records_sample(model_num):
+    db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
+    new_records_pattern = os.path.join(db_path, 'game-{}*'.format(model_num))
+    all_records_pattern = os.path.join(db_path, 'game*')
+
+    while True:
+        new_records = utils.pai_find_path(new_records_pattern)
+        if len(new_records) >= utils.TRAIN_EPOCH_REPEAT_NUM * 2 + 20:
+            break
+        else:
+            time.sleep(60)
+
+    all_records = utils.pai_find_path(all_records_pattern)
+    old_records = list(set(all_records) - set(new_records))
+    old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
+    return old_records + new_records
+
 
 if __name__ == '__main__':
     pass

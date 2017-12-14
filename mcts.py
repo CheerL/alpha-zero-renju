@@ -97,7 +97,7 @@ class MCTNode(object):
 
         # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
         # visits. Note that u is not normalized to be a distribution.
-        self.N += 1
+        self.N += 1.0
         self.W += value
         self.Q = self.W / self.N
 
@@ -117,7 +117,7 @@ class MCT(object):
     fast evaluation from leaf nodes to the end of the game.
     """
 
-    def __init__(self, board):
+    def __init__(self, board, model_num=None):
         """Arguments:
         value_fn -- a function that takes in a state and ouputs a score in [-1, 1], i.e. the
             expected value of the end game score from the current player's perspective.
@@ -139,7 +139,7 @@ class MCT(object):
                                                                 # round >= 30   : 0.01
         self.dirichlet_noise_distribute = dirichlet(np.ones(self.board.full_size) * 0.03)
         self.noise_rate = utils.NOISE_RATE
-        self.net = Net()
+        self.net = Net(model_num)
 
     def play(self):
         """Run a single playout from the root to the given depth, getting a value at the leaf and
@@ -162,11 +162,11 @@ class MCT(object):
                     index, node = node.select()
                     temp_board.move(index)
                     temp_board.round_change(1)
-                # come a leaf node
+                # leaf node
                 if index is not None and temp_board.judge_win(index):
-                    node.backup(1)
+                    node.backup(1.0)
                 elif temp_board.judge_round_up():
-                    node.backup(0)
+                    node.backup(0.0)
                 else:
                     predict, value = self.evaluate(temp_board)
                     node.expand(predict)
@@ -184,9 +184,13 @@ class MCT(object):
         """
         # net work evaluate + Dirichlet noise
         predict, value = self.net.get_predict_and_value(board.get_feature(board.now_color))
+        if board.round_num is 0:
+            noise = self.dirichlet_noise_distribute.rvs()[0]
+            predict = (1 - self.noise_rate) * predict + self.noise_rate * noise
+
         predict[board.board != 0] = 0
 
-        if not predict.sum():
+        if predict.sum() <= 0:
             predict[board.empty_pos] = np.random.sample(board.full_size)[board.empty_pos]
 
         predict = predict / predict.sum()
@@ -239,11 +243,6 @@ class MCT(object):
             self.root.clear_to_root()
 
     def get_move(self, probability):
-        if self.noise_rate > 0:
-            noise = self.dirichlet_noise_distribute.rvs()[0]
-            probability = (1 - self.noise_rate) * probability + self.noise_rate * noise
-            probability[self.board.board != 0] = 0
-            probability = probability / probability.sum()
         index = np.random.choice(np.arange(self.board.full_size), p=probability)
         return index
 
