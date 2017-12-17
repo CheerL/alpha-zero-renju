@@ -21,9 +21,7 @@ def pai_constant_init():
 
 def main(_):
     pai_constant_init()
-    utils.SAVE_RECORD = False
     utils.SAVE_PSQ = True
-    utils.TAU_CHANGE_ROUND = 10
     while True:
         game.compare()
 

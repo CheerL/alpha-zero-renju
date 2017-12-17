@@ -35,7 +35,7 @@ def generate_dataset(files_list, batch_size):
 
     dataset = tf.contrib.data.TFRecordDataset(files_list)
     # dataset = dataset.map(map_func=__parse_func)
-    dataset = dataset.shuffle(utils.TRAIN_EPOCH_GAME_NUM * utils.SIZE * utils.SIZE)
+    dataset = dataset.shuffle(100 * utils.SIZE * utils.SIZE)
     dataset = dataset.batch(batch_size)
     iterator = dataset.make_initializable_iterator()
     next_batch = iterator.get_next()

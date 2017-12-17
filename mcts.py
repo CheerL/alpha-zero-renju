@@ -60,9 +60,7 @@ class MCTNode(object):
 
     def get_Q_plus_U(self):
         '''Q + U'''
-        c_puct = 5
-        U = c_puct * self.P * (self.parent.N ** 0.5) / (1 + self.N)
-        return self.Q + U
+        return self.Q + utils.C_PUCT * self.P * (self.parent.N ** 0.5) / (1 + self.N)
 
     def expand(self, predict):
         """Expand tree by creating new children.

@@ -18,7 +18,7 @@ class Board(object):
         self.full_size = size ** 2
         self.board = np.zeros(self.full_size, np.int8)
         self.board_history_length = utils.BOARD_HISTORY_LENGTH
-        self.feature_channels = self.board_history_length * 2 + 1
+        self.feature_channels = utils.FEATURE_CHANNEL
         self.black_board_history = [np.zeros(self.full_size, dtype=np.int8)] * self.board_history_length
         self.white_board_history = [np.zeros(self.full_size, dtype=np.int8)] * self.board_history_length
 
@@ -104,15 +104,19 @@ class Board(object):
             round_num = self.round_num // 2
 
         if color is utils.BLACK:
-            return np.array(self.black_board_history[round_num:round_num + self.board_history_length]\
-                + self.white_board_history[round_num:round_num + self.board_history_length]\
-                + [np.ones(self.full_size)], dtype=np.int8).reshape(
+            return np.array(
+                self.black_board_history[round_num:round_num + self.board_history_length]\
+                + self.white_board_history[round_num:round_num + self.board_history_length],
+                dtype=np.int8
+                ).reshape(
                     (1, self.feature_channels, self.size, self.size)
                 ).transpose((0, 2, 3, 1))
         elif color is utils.WHITE:
-            return np.array(self.white_board_history[round_num:round_num + self.board_history_length]\
-                + self.black_board_history[round_num + 1:round_num + 1 + self.board_history_length]\
-                + [np.zeros(self.full_size)], dtype=np.int8).reshape(
+            return np.array(
+                self.white_board_history[round_num:round_num + self.board_history_length]\
+                + self.black_board_history[round_num + 1:round_num + 1 + self.board_history_length],
+                dtype=np.int8
+                ).reshape(
                     (1, self.feature_channels, self.size, self.size)
                 ).transpose((0, 2, 3, 1))
         else:

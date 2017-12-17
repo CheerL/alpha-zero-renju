@@ -167,7 +167,12 @@ class Game(object):
 
 def main():
     if utils.USE_PAI:
-        model_num = utils.pai_read_best()
+        try:
+            model_num = utils.pai_read_best()
+        except:
+            model_num = 0
+            utils.pai_change_best(model_num)
+
         db_pattern = os.path.join(utils.PAI_DB_PATH, 'game-{}-*'.format(model_num))
         if len(utils.pai_find_path(db_pattern)) / 2 >= utils.TRAIN_EPOCH_GAME_NUM:
             pass
@@ -189,10 +194,20 @@ def compare(compare_model_num=None, default_model_num=None):
         if compare_model_num is None:
             compare_model_num = utils.pai_read_best()
         if default_model_num is None:
-            default_model_num = utils.pai_read_best('compare')
+            new_compare = utils.pai_find_path(
+                os.path.join(utils.PAI_RECORD_PATH, 'compare-*-{}.txt'.format(compare_model_num))
+                )
+            if new_compare:
+                default_model_num = int(new_compare[0].split('-')[-2])
+            else:
+                default_model_num = utils.pai_read_best('compare')
 
-        win, total = utils.pai_read_compare_record(default_model_num, compare_model_num)
-        if total > utils.COMPARE_TIME or compare_model_num == default_model_num:
+        if default_model_num != compare_model_num:
+            win, total = utils.pai_read_compare_record(default_model_num, compare_model_num)
+        else:
+            total = 10000
+
+        if total > utils.COMPARE_TIME:
             time.sleep(120)
             return
 
@@ -228,6 +243,7 @@ def compare(compare_model_num=None, default_model_num=None):
             utils.pai_change_best(compare_model_num, 'compare')
             game.logger.info('Change best model to {}'.format(compare_model_num))
         else:
+            utils.pai_change_best(default_model_num, 'compare')
             game.logger.info('Best model does not change')
 
 

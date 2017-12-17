@@ -146,7 +146,6 @@ class Net(object):
         loss = utils.XENT_COEF * xent + utils.SQUARE_COEF * square + l2
         tf.summary.scalar('xent', xent)
         tf.summary.scalar('square', square)
-        tf.summary.scalar('l2', l2)
         tf.summary.scalar('loss', loss)
         return loss
 
@@ -167,13 +166,20 @@ class Net(object):
             utils.FILTER_NUM,
             utils.CONV_KERNEL_SIZE,
             regularizer='L2',
-            weight_decay=utils.L2_DECAY
+            weight_decay=utils.L2_DECAY,
+            bias=False
             )
         net = tl.layers.normalization.batch_normalization(net)
         net = tl.activations.relu(net)
 
         for _ in range(utils.RES_BLOCK_NUM):
-            net = tl.layers.conv.residual_block(net, 1, utils.FILTER_NUM)
+            net = tl.layers.conv.residual_block(
+                net,
+                1,
+                utils.FILTER_NUM,
+                weights_init='uniform_scaling',
+                bias=False
+                )
             net = tl.activations.relu(net)
 
         return net
@@ -188,33 +194,30 @@ class Net(object):
         self.trainer = self.add_trainer(self.loss)
         self.logger.info('Build net successfully')
 
-    def get_predict_and_value(self, feature, rot=False):
-        if not rot:
-            predict, value = self.sess.run(
-                [self.predict, self.value],
-                feed_dict={self.feature: feature.astype(np.float32)}
-                )
-            predict = predict[0]
-            value = value[0, 0]
-            return predict, value
-        else:
-            rot_num = np.random.randint(0, 8)
-            feature = self.rot[rot_num](feature, (1, 2))
-            predict, value = self.sess.run(
-                [self.predict, self.value],
-                feed_dict={self.feature: feature.astype(np.float32)}
-                )
-            predict = self.rot_inverse[rot_num](
-                np.reshape(predict, (utils.SIZE, utils.SIZE))
-            ).reshape(utils.FULL_SIZE)
-            value = value[0, 0]
-            return predict, value
+    def get_predict_and_value(self, feature):
+        predict, value = self.sess.run(
+            [self.predict, self.value],
+            feed_dict={self.feature: feature.astype(np.float32)}
+            )
+        return predict[0], value[0, 0]
+        # else:
+        #     rot_num = np.random.randint(0, 8)
+        #     feature = self.rot[rot_num](feature, (1, 2))
+        #     predict, value = self.sess.run(
+        #         [self.predict, self.value],
+        #         feed_dict={self.feature: feature.astype(np.float32)}
+        #         )
+        #     predict = self.rot_inverse[rot_num](
+        #         np.reshape(predict, (utils.SIZE, utils.SIZE))
+        #     ).reshape(utils.FULL_SIZE)
+        #     value = value[0, 0]
+        #     return predict, value
 
     def train(self, files, batch_size=utils.BATCH_SIZE):
         with self.graph.as_default():
-            if not self.summary:
+            if self.summary is None:
                 self.summary = tf.summary.merge(tf.get_collection(tf.GraphKeys.SUMMARIES))
-            if not self.summary_writer:
+            if self.summary_writer is None:
                 summary_path = utils.PAI_SUMMARY_PATH if utils.USE_PAI else utils.SUMMARY_PATH
                 self.summary_writer = tf.summary.FileWriter(summary_path)
 
@@ -330,15 +333,18 @@ def records_sample(model_num):
 
     while True:
         new_records = utils.pai_find_path(new_records_pattern)
-        if len(new_records) >= utils.TRAIN_EPOCH_REPEAT_NUM * 2 + 20:
+        if len(new_records) >= utils.TRAIN_EPOCH_GAME_NUM * 2 + 20:
             break
         else:
             time.sleep(60)
 
     all_records = utils.pai_find_path(all_records_pattern)
     old_records = list(set(all_records) - set(new_records))
-    old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
-    return old_records + new_records
+    try:
+        old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
+        return old_records + new_records
+    except:
+        return new_records
 
 
 if __name__ == '__main__':
