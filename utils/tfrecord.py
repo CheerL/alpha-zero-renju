@@ -15,7 +15,7 @@ def generate_example(feature, expect, reward):
 def generate_writer(path):
     return tf.python_io.TFRecordWriter(path)
 
-def generate_dataset(files_list, batch_size):
+def generate_dataset(files_list, batch_size, verificate=False):
     # def __parse_func(content):
     #     example = tf.parse_single_example(
     #         content,
@@ -36,7 +36,10 @@ def generate_dataset(files_list, batch_size):
     dataset = tf.contrib.data.TFRecordDataset(files_list)
     # dataset = dataset.map(map_func=__parse_func)
     dataset = dataset.shuffle(100 * utils.SIZE * utils.SIZE)
-    dataset = dataset.batch(batch_size)
+    if not verificate:
+        dataset = dataset.batch(batch_size)
+    else:
+        dataset = dataset.batch(utils.VERIFICATION_GAME_NUM * 2 * utils.SIZE * utils.SIZE)
     iterator = dataset.make_initializable_iterator()
     next_batch = iterator.get_next()
 

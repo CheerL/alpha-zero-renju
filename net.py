@@ -213,7 +213,7 @@ class Net(object):
         #     value = value[0, 0]
         #     return predict, value
 
-    def train(self, files, batch_size=utils.BATCH_SIZE):
+    def train(self, files, batch_size=utils.BATCH_SIZE, write_summary=True):
         with self.graph.as_default():
             if self.summary is None:
                 self.summary = tf.summary.merge(tf.get_collection(tf.GraphKeys.SUMMARIES))
@@ -237,7 +237,7 @@ class Net(object):
                                 self.reward: reward
                             })
 
-                        if train_step % utils.SUMMARY_INTERVAL == 0:
+                        if train_step % utils.SUMMARY_INTERVAL == 0 and write_summary:
                             p, v, summary = self.sess.run(
                                 [self.predict, self.value, self.summary],
                                 feed_dict={
@@ -254,6 +254,26 @@ class Net(object):
                     except tf.errors.OutOfRangeError:
                         break
             self.logger.info('Training end')
+
+    def verificate(self, files):
+        with self.graph.as_default():
+            iterator, next_batch = generate_dataset(files, 100, True)
+            self.sess.run(iterator.initializer)
+            while True:
+                try:
+                    feature, expect, reward = self.sess.run(next_batch)
+                    accuracy, loss = self.sess.run(
+                        [self.accuracy, self.loss],
+                        feed_dict={
+                            self.feature: feature,
+                            self.expect: expect,
+                            self.reward: reward
+                        })
+                    self.logger.info('accuracy: {}, loss: {}'.format(accuracy, loss))
+                except tf.errors.OutOfRangeError:
+                    break
+            self.logger.info('Verification end')
+            return accuracy, loss
 
     def model_path(self, suffix):
         if utils.USE_PAI:
@@ -316,35 +336,54 @@ class Net(object):
         return self.sess.run(self.epoch)
 
 
-def train(model_num=None, save_model_num=None):
+def train(model_num=None, save_model_num=None, write_summary=True):
     if model_num is None:
         model_num = utils.pai_read_best()
 
     records = records_sample(model_num)
     net = Net(model_num)
-    net.train(records)
+    net.train(records, write_summary=write_summary)
     if utils.SAVE_MODEL:
         net.save_model(True, model_num=save_model_num)
 
-def records_sample(model_num):
+def verificate(model_num=None):
+    if model_num is None:
+        model_num = utils.pai_read_best()
+
+    records = records_sample(model_num, verificate=True)
+    net = Net(model_num)
+    return net.verificate(records)
+
+def records_sample(model_num, verificate=False):
     db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
-    new_records_pattern = os.path.join(db_path, 'game-{}*'.format(model_num))
-    all_records_pattern = os.path.join(db_path, 'game*')
+    if not verificate:
+        new_records_pattern = os.path.join(db_path, 'game-{}*'.format(model_num))
+        all_records_pattern = os.path.join(db_path, 'game*')
 
-    while True:
-        new_records = utils.pai_find_path(new_records_pattern)
-        if len(new_records) >= utils.TRAIN_EPOCH_GAME_NUM * 2 + 20:
-            break
-        else:
-            time.sleep(60)
+        while True:
+            new_records = utils.pai_find_path(new_records_pattern)
+            if len(new_records) >= utils.TRAIN_EPOCH_GAME_NUM * 2 + 20:
+                break
+            else:
+                time.sleep(60)
 
-    all_records = utils.pai_find_path(all_records_pattern)
-    old_records = list(set(all_records) - set(new_records))
-    try:
-        old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
-        return old_records + new_records
-    except:
-        return new_records
+        all_records = utils.pai_find_path(all_records_pattern)
+        old_records = list(set(all_records) - set(new_records))
+        try:
+            old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
+            return old_records + new_records
+        except:
+            return new_records
+    else:
+        records_pattern = os.path.join(db_path, 'game-verification-{}*'.format(model_num))
+        while True:
+            records = utils.pai_find_path(records_pattern)
+            if len(records) >= utils.VERIFICATION_GAME_NUM * 2:
+                break
+            else:
+                time.sleep(60)
+
+        return records
 
 
 if __name__ == '__main__':

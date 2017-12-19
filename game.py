@@ -195,10 +195,10 @@ def compare(compare_model_num=None, default_model_num=None):
             compare_model_num = utils.pai_read_best()
         if default_model_num is None:
             new_compare = utils.pai_find_path(
-                os.path.join(utils.PAI_RECORD_PATH, 'compare-*-{}.txt'.format(compare_model_num))
+                os.path.join(utils.PAI_RECORD_PATH, 'compare-{}'.format(compare_model_num))
                 )
             if new_compare:
-                default_model_num = int(new_compare[0].split('-')[-2])
+                default_model_num = int(new_compare[0].split('-')[-1])
             else:
                 default_model_num = utils.pai_read_best('compare')
 

@@ -81,6 +81,7 @@ VALUE_HEAD_FC_DIM_MID = FILTER_NUM
 VALUE_HEAD_FC_DIM_OUT = 1
 
 # train
+VERIFICATION_GAME_NUM = 2
 TRAIN_EPOCH_GAME_NUM = 20
 TRAIN_EPOCH_REPEAT_NUM = 20
 TRAIN_SAMPLE_NUM = 2 * 25
@@ -88,7 +89,7 @@ SUMMARY_INTERVAL = 5
 BATCH_SIZE = 64
 L2_DECAY = 0.0001
 MOMENTUM = 0.9
-BASE_LEARNING_RATE = 2e-6
+BASE_LEARNING_RATE = 5e-5
 XENT_COEF = 1
 SQUARE_COEF = 1
 
@@ -138,7 +139,7 @@ def pai_find_path(pattern):
     return tf.gfile.Glob(pattern)
 
 def pai_read_compare_record(best_num, compare_num):
-    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}.txt'.format(best_num, compare_num))
+    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(compare_num, best_num))
     try:
         with tf.gfile.GFile(compare_record_path) as file:
             win, total = file.read().split('-')
@@ -149,7 +150,7 @@ def pai_read_compare_record(best_num, compare_num):
         return 0, 0
 
 def pai_write_compare_record(best_num, compare_num, compare_win):
-    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}.txt'.format(best_num, compare_num))
+    compare_record_path = os.path.join(PAI_RECORD_PATH, 'compare-{}-{}'.format(compare_num, best_num))
     win, total = pai_read_compare_record(best_num, compare_num)
     win = win + 1 if compare_win else win
     total = total + 1

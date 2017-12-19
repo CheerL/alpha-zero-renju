@@ -120,7 +120,14 @@ class MCTSPlayer(Player):
     def save_history_to_tfrecord(self, reward):
         if utils.SAVE_RECORD:
             net_model_num = self.mct.net.get_model_num()
-            tfr_name = 'game-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
+            verification_pattern = os.path.join(
+                utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH,
+                'game-verification-{}*'.format(net_model_num)
+                )
+            if len(utils.pai_find_path(verification_pattern)) < 2 * utils.VERIFICATION_GAME_NUM:
+                tfr_name = 'game-verification-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
+            else:
+                tfr_name = 'game-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
             tfr_path = os.path.join(utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH, tfr_name)
             tfr_writer = generate_writer(tfr_path)
 
