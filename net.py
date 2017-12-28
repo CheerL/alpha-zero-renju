@@ -358,32 +358,33 @@ def records_sample(model_num, verificate=False):
     db_path = utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH
     if not verificate:
         new_records_pattern = os.path.join(db_path, 'game-{}*'.format(model_num))
-        all_records_pattern = os.path.join(db_path, 'game*')
+        # all_records_pattern = os.path.join(db_path, 'game*')
 
         while True:
             new_records = utils.pai_find_path(new_records_pattern)
-            if len(new_records) >= utils.TRAIN_EPOCH_GAME_NUM * 2 + 20:
-                break
+            if len(new_records) >= utils.TRAIN_EPOCH_GAME_NUM * 2 + 10:
+                # break
+                return new_records
             else:
                 time.sleep(60)
 
-        all_records = utils.pai_find_path(all_records_pattern)
-        old_records = list(set(all_records) - set(new_records))
-        try:
-            old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
-            return old_records + new_records
-        except:
-            return new_records
+        # all_records = utils.pai_find_path(all_records_pattern)
+        # old_records = list(set(all_records) - set(new_records))
+        # try:
+        #     old_records = list(np.random.choice(old_records, utils.TRAIN_SAMPLE_NUM))
+        #     raise Exception('eee')
+        #     return old_records + new_records
+        # except:
+        #     return new_records
     else:
         records_pattern = os.path.join(db_path, 'game-verification-{}*'.format(model_num))
         while True:
             records = utils.pai_find_path(records_pattern)
             if len(records) >= utils.VERIFICATION_GAME_NUM * 2:
-                break
+                return records
             else:
                 time.sleep(60)
 
-        return records
 
 
 if __name__ == '__main__':

@@ -52,7 +52,7 @@ class Board(object):
 
     def back_diag(self, x, y):
         '''获取`(x, y)`处反对角线'''
-        if x + y < 15:
+        if x + y < self.size:
             return self.board[x + y:(x + y) * self.size + 1:self.size - 1]
         else:
             return self.board[(x + y - self.size + 2) * self.size - 1:self.full_size:self.size - 1]

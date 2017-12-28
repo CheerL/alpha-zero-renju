@@ -44,7 +44,7 @@ COLOR = {
 }
 
 # Player type
-HUMAN, GOMOCUP, MCTS, RANDOM = 0, 1, 2, 3
+HUMAN, GOMOCUP, MCTS, RANDOM, TRANS = 0, 1, 2, 3, 4
 
 # game default para
 SIZE = 20
@@ -83,15 +83,15 @@ VALUE_HEAD_FC_DIM_OUT = 1
 # train
 VERIFICATION_GAME_NUM = 2
 TRAIN_EPOCH_GAME_NUM = 20
-TRAIN_EPOCH_REPEAT_NUM = 20
-TRAIN_SAMPLE_NUM = 2 * 25
+TRAIN_EPOCH_REPEAT_NUM = 100
+TRAIN_SAMPLE_NUM = 2 * 10
 SUMMARY_INTERVAL = 5
-BATCH_SIZE = 64
-L2_DECAY = 0.0001
+BATCH_SIZE = 150
+L2_DECAY = 1e-4
 MOMENTUM = 0.9
 BASE_LEARNING_RATE = 5e-5
 XENT_COEF = 1
-SQUARE_COEF = 1
+SQUARE_COEF = 0.1
 
 # compare
 COMPARE_TIME = 20
@@ -109,6 +109,12 @@ def path_init(paths, pai_path=False):
         else:
             if not os.path.exists(path):
                 os.makedirs(path)
+
+def pai_open(path, tag):
+    if USE_PAI:
+        return tf.gfile.FastGFile(path, tag)
+    else:
+        return open(path, tag)
 
 def pai_copy(from_path, to_path, overwrite=True):
     tf.gfile.Copy(from_path, to_path, overwrite=overwrite)

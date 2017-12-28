@@ -154,12 +154,90 @@ class MCTSPlayer(Player):
         self.mct.reset()
 
 
+class TransPlayer(Player):
+    def __init__(self, color, game, *args):
+        super(TransPlayer, self).__init__(color, utils.TRANS, game)
+        self.prob_history = list()
+        self.probability = None
+        self.record = None
+
+    def add_history(self):
+        if self.probability is not None:
+            self.prob_history.append(self.probability.copy())
+        else:
+            raise AttributeError('no probability yet')
+
+    def add_record(self, path):
+        self.logger.info('Add {}'.format(path))
+        with utils.pai_open(path, 'r') as file:
+            self.record = iter(file.readlines()[1:-3])
+
+        if self.color is utils.WHITE:
+            next(self.record)
+
+    def get_move(self):
+        try:
+            move = next(self.record)
+            try:
+                next(self.record)
+            except:
+                pass
+
+            x, y, _ = map(lambda x: int(x) - 1, move.split(','))
+            index = x + y * self.size
+            self.logger.info('{} {} {}'.format(x, y, index))
+            self.probability = np.zeros(self.game.board.full_size, np.float32)
+            self.probability[index] = 1.0
+            self.add_history()
+            return index
+        except Exception as e:
+            self.logger.error(e)
+            self.logger.error('Come to the end of the record')
+
+    def undo(self, index):
+        super(TransPlayer, self).undo(index)
+        self.probability = self.prob_history.pop()
+
+    def win(self):
+        super(TransPlayer, self).win()
+        self.save_history_to_tfrecord(1)
+
+    def lose(self):
+        self.save_history_to_tfrecord(-1)
+
+    def save_history_to_tfrecord(self, reward):
+        if utils.SAVE_RECORD:
+            net_model_num = 0
+            verification_pattern = os.path.join(
+                utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH,
+                'game-verification-{}*'.format(net_model_num)
+                )
+            if len(utils.pai_find_path(verification_pattern)) < 2 * utils.VERIFICATION_GAME_NUM:
+                tfr_name = 'game-verification-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
+            else:
+                tfr_name = 'game-{}-{}-{}.tfrecord'.format(net_model_num, time.time(), self.color_str)
+            tfr_path = os.path.join(utils.PAI_DB_PATH if utils.USE_PAI else utils.DB_PATH, tfr_name)
+            tfr_writer = generate_writer(tfr_path)
+
+            for i, expect in enumerate(self.prob_history):
+                feature = self.game.board.get_feature(self.color, i)
+                example = generate_example(feature, expect, reward)
+                tfr_writer.write(example.SerializeToString())
+
+            tfr_writer.close()
+
+    def reset(self):
+        self.prob_history = list()
+        self.probability = None
+
+
 def player_generate(player_type, color, game, model_num=None):
     PLAYER_DICT = {
         utils.HUMAN: HumanPlayer,
         utils.GOMOCUP: GomocupPlayer,
         utils.RANDOM: RandomPlayer,
-        utils.MCTS: MCTSPlayer
+        utils.MCTS: MCTSPlayer,
+        utils.TRANS: TransPlayer
     }
 
     if player_type not in PLAYER_DICT:

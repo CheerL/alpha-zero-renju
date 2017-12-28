@@ -25,9 +25,12 @@ def bayes_func(repeat_time, learning_rate, batch_size):
     utils.BASE_LEARNING_RATE = learning_rate
     utils.BATCH_SIZE = int(batch_size)
     utils.SAVE_MODEL = False
-    model_num = 6
+    model_num = 0
     _net = net.Net(model_num)
     _net.load_model(model_num)
+    _net.logger.info(
+        'repeat_time: {}, learning_rate: {}, batch_size: {}'.format(repeat_time, learning_rate, batch_size)
+        )
     net.train(model_num, write_summary=False)
     acc, loss = net.verificate(model_num)
     return -loss
@@ -35,19 +38,19 @@ def bayes_func(repeat_time, learning_rate, batch_size):
 def main(_):
     pai_constant_init()
     params = {
-        'repeat_time': (0.5, 10.5),
-        'learning_rate': (1e-7, 0.1),
+        'repeat_time': (1, 20),
+        'learning_rate': (1e-8, 1e-4),
         'batch_size': (10, 150)
     }
     explore_params = {
-        'repeat_time': [0],
-        'learning_rate': [1e-5],
-        'batch_size': [64],
+        'repeat_time':      [0, 10, 10],
+        'learning_rate':    [1e-5, 1e-8, 1e-6],
+        'batch_size':       [64, 150, 150],
     }
     gp_params = {"alpha": 1e-5, "n_restarts_optimizer": 2}
     bo = BayesianOptimization(bayes_func, params)
     bo.explore(explore_params)
-    bo.maximize(init_points=5, n_iter=25, acq='ei', xi=0.05, **gp_params)
+    bo.maximize(init_points=0, n_iter=50, acq='ei', xi=1e-3, **gp_params)
     print(bo.res['max'])
     print(bo.res['all'])
 
