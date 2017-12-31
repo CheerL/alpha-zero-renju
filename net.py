@@ -346,11 +346,13 @@ def train(model_num=None, save_model_num=None, write_summary=True):
     if utils.SAVE_MODEL:
         net.save_model(True, model_num=save_model_num)
 
-def verificate(model_num=None):
+def verificate(model_num=None, record_num=None):
     if model_num is None:
         model_num = utils.pai_read_best()
+    if record_num is None:
+        record_num = model_num
 
-    records = records_sample(model_num, verificate=True)
+    records = records_sample(record_num, verificate=True)
     net = Net(model_num)
     return net.verificate(records)
 

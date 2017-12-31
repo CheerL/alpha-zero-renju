@@ -1,7 +1,6 @@
 from __future__ import division, print_function, absolute_import
 
 import os
-import sys
 import argparse
 import tensorflow as tf
 import utils
@@ -22,8 +21,10 @@ def pai_constant_init():
 def main(_):
     pai_constant_init()
     utils.SAVE_PSQ = True
+    utils.SAVE_RECORD = True
     while True:
-        game.compare()
+        game.compare(4, 3)
+        break
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
